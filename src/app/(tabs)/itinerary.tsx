@@ -224,20 +224,45 @@ interface ActivityCardProps {
   activity: ItineraryActivity;
 }
 
-const ActivityCard: React.FC<ActivityCardProps> = ({ activity }) => (
-  <View style={styles.activityCard}>
-    <View style={styles.activityHeader}>
-      <Text style={styles.activityName}>{activity.name}</Text>
-      <Text style={styles.activityRating}>⭐ {activity.rating}</Text>
-    </View>
-    <Text style={styles.activityTime}>{activity.timeSlot}</Text>
-    <Text style={styles.activityDescription}>{activity.description}</Text>
-    <View style={styles.activityMeta}>
-      <Text style={styles.activityDuration}>{activity.duration}h</Text>
-      <Text style={styles.activityType}>{activity.type}</Text>
-    </View>
-  </View>
-);
+const ActivityCard: React.FC<ActivityCardProps> = ({ activity }) => {
+  const handleCardPress = () => {
+    router.push({
+      pathname: '/activity-details',
+      params: {
+        id: activity.id,
+        name: activity.name,
+        description: activity.description,
+        type: activity.type,
+        rating: activity.rating.toString(),
+        duration: activity.duration.toString(),
+        timeSlot: activity.timeSlot,
+        latitude: activity.latitude.toString(),
+        longitude: activity.longitude.toString(),
+        category: JSON.stringify(activity.category),
+      },
+    });
+  };
+
+  return (
+    <TouchableOpacity style={styles.activityCard} onPress={handleCardPress}>
+      <View style={styles.activityHeader}>
+        <Text style={styles.activityName}>{activity.name}</Text>
+        <Text style={styles.activityRating}>⭐ {activity.rating}</Text>
+      </View>
+      <Text style={styles.activityTime}>{activity.timeSlot}</Text>
+      <Text style={styles.activityDescription} numberOfLines={2}>
+        {activity.description}
+      </Text>
+      <View style={styles.activityMeta}>
+        <Text style={styles.activityDuration}>{activity.duration}h</Text>
+        <Text style={styles.activityType}>{activity.type}</Text>
+      </View>
+      <View style={styles.tapHint}>
+        <Text style={styles.tapHintText}>Tap for details →</Text>
+      </View>
+    </TouchableOpacity>
+  );
+};
 
 interface StatItemProps {
   label: string;
@@ -440,6 +465,15 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.tertiary,
     textTransform: 'capitalize',
+  },
+  tapHint: {
+    marginTop: theme.spacing.sm,
+    alignItems: 'flex-end',
+  },
+  tapHintText: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.primary[600],
+    fontStyle: 'italic',
   },
   summary: {
     margin: theme.spacing.lg,
