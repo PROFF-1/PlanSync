@@ -27,7 +27,15 @@
       "favicon": "./src/assets/favicon.png"
     },
     "scheme": "plansync",
-    "plugins":["expo-router"],
+    "plugins": [
+      "expo-router",
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow PlanSync to use your location to show nearby places and provide better recommendations."
+        }
+      ]
+    ],
     "experiments": {
       "router": true
     }
