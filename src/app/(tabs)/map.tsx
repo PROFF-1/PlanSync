@@ -22,14 +22,34 @@ const MapTab = () => {
   const [loading, setLoading] = useState(true);
   const [selectedActivity, setSelectedActivity] = useState<ItineraryActivity | null>(null);
   const [modalVisible, setModalVisible] = useState(false);
+  const [showMap, setShowMap] = useState(false);
+  const [lastParams, setLastParams] = useState<string>('');
 
   useEffect(() => {
-    loadItinerary();
-  }, [params]);
+    // Create a stable key from params to avoid unnecessary regenerations
+    const currentParamsKey = `${params.destination}-${params.interests}-${params.duration}`;
+    
+    // Only regenerate if the actual values have changed, not just the object reference
+    if (currentParamsKey !== lastParams && params.destination && params.duration) {
+      setLastParams(currentParamsKey);
+      loadItinerary();
+    } else if (!params.destination || !params.duration) {
+      // Handle case where no valid params are provided
+      setLoading(false);
+      setItinerary(null);
+    }
+  }, [params.destination, params.interests, params.duration, lastParams]);
 
   const loadItinerary = async () => {
     try {
       setLoading(true);
+
+      // Check if required parameters exist
+      if (!params?.destination || !params?.duration) {
+        setLoading(false);
+        setItinerary(null);
+        return;
+      }
       
       const generated = itineraryGenerator.generateItinerary(
         params.destination as string,
@@ -40,7 +60,14 @@ const MapTab = () => {
       if (generated) {
         setItinerary(generated);
       } else {
-        Alert.alert('Error', 'Failed to load itinerary data.');
+        Alert.alert(
+          'Error',
+          'Failed to generate itinerary data.',
+          [
+            { text: 'Go to Home', onPress: () => router.push('/(tabs)/') },
+            { text: 'Try Again', onPress: loadItinerary }
+          ]
+        );
       }
     } catch (error) {
       Alert.alert('Error', 'Something went wrong. Please try again.');
@@ -131,10 +158,32 @@ const MapTab = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load location data</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={loadItinerary}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
+          <Text style={styles.errorText}>
+            {!params.destination || !params.duration 
+              ? 'No locations found' 
+              : 'Failed to load location data'
+            }
+          </Text>
+          <Text style={styles.errorSubtext}>
+            {!params.destination || !params.duration
+              ? 'Please create an itinerary from the Home tab first.'
+              : 'Something went wrong while loading your locations.'
+            }
+          </Text>
+          <View style={styles.errorButtons}>
+            {!params.destination || !params.duration ? (
+              <TouchableOpacity 
+                style={styles.retryButton} 
+                onPress={() => router.push('/(tabs)/')}
+              >
+                <Text style={styles.retryButtonText}>Go to Home</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.retryButton} onPress={loadItinerary}>
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -157,29 +206,93 @@ const MapTab = () => {
           <Text style={styles.backButtonText}>← Back</Text>
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Locations</Text>
-        <View style={styles.placeholder} />
+        <TouchableOpacity 
+          style={styles.toggleButton}
+          onPress={() => setShowMap(!showMap)}
+        >
+          <Text style={styles.toggleButtonText}>
+            {showMap ? 'List' : 'Map'}
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Location List */}
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        <View style={styles.destinationInfo}>
-          <Text style={styles.destinationTitle}>{itinerary.destination.name}</Text>
-          <Text style={styles.destinationSubtitle}>
-            {allActivities.length} locations • {itinerary.totalDays} days
-          </Text>
+      {showMap ? (
+        /* Map View */
+        <View style={styles.mapContainer}>
+          <ScrollView style={styles.mapScrollView} contentContainerStyle={styles.mapContent}>
+            <View style={styles.mapPlaceholder}>
+              <Text style={styles.mapPlaceholderTitle}>Interactive Map</Text>
+              <Text style={styles.mapPlaceholderSubtitle}>
+                {allActivities.length} locations in {itinerary.destination.name}
+              </Text>
+              
+              {/* Location pins in a grid layout */}
+              <View style={styles.locationGrid}>
+                {allActivities.map((activity, index) => (
+                  <TouchableOpacity
+                    key={`${activity.id}-${activity.day}-${index}`}
+                    style={styles.locationPin}
+                    onPress={() => handleLocationPress(activity)}
+                  >
+                    <View style={styles.pinIcon}>
+                      <Text style={styles.pinEmoji}>
+                        {getLocationIcon(activity.type)}
+                      </Text>
+                    </View>
+                    <Text style={styles.pinName} numberOfLines={2}>
+                      {activity.name}
+                    </Text>
+                    <Text style={styles.pinDetails}>
+                      Day {activity.day}
+                    </Text>
+                    <TouchableOpacity 
+                      style={styles.pinMapButton}
+                      onPress={(e) => {
+                        e.stopPropagation();
+                        openInMaps(activity);
+                      }}
+                    >
+                      <Text style={styles.pinMapButtonText}>📍 Open</Text>
+                    </TouchableOpacity>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              
+              <TouchableOpacity 
+                style={styles.openAllMapsButton}
+                onPress={() => {
+                  const query = allActivities.map(a => `${a.name}, ${itinerary.destination.name}`).join(' | ');
+                  const url = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+                  Linking.openURL(url);
+                }}
+              >
+                <Text style={styles.openAllMapsButtonText}>🗺️ View All on Google Maps</Text>
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
         </View>
+      ) : (
+        /* Location List */
+        <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+          <View style={styles.destinationInfo}>
+            <Text style={styles.destinationTitle}>{itinerary.destination.name}</Text>
+            <Text style={styles.destinationSubtitle}>
+              {allActivities.length} locations • {itinerary.totalDays} days
+            </Text>
+          </View>
 
-        <View style={styles.locationsContainer}>
-          {allActivities.map((activity, index) => (
-            <LocationCard
-              key={`${activity.id}-${activity.day}-${index}`}
-              activity={activity}
-              onPress={() => handleLocationPress(activity)}
-              onOpenMaps={() => openInMaps(activity)}
-            />
-          ))}
-        </View>
-      </ScrollView>
+          <View style={styles.locationsContainer}>
+            {allActivities.map((activity, index) => (
+              <LocationCard
+                key={`${activity.id}-${activity.day}-${index}`}
+                activity={activity}
+                onPress={() => handleLocationPress(activity)}
+                onOpenMaps={() => openInMaps(activity)}
+              />
+            ))}
+          </View>
+        </ScrollView>
+      )}
 
       {/* Activity Detail Modal */}
       <Modal
@@ -245,7 +358,18 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.semantic.error[500],
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.text.secondary,
     marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+    paddingHorizontal: theme.spacing.lg,
+  },
+  errorButtons: {
+    alignItems: 'center',
   },
   retryButton: {
     backgroundColor: theme.colors.primary[500],
@@ -280,8 +404,102 @@ const styles = StyleSheet.create({
     fontWeight: theme.typography.fontWeight.semibold as any,
     color: theme.colors.text.primary,
   },
-  placeholder: {
-    width: 60, // Same width as backButton for symmetry
+  toggleButton: {
+    backgroundColor: theme.colors.primary[500],
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+  },
+  toggleButtonText: {
+    color: theme.colors.text.inverse,
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.medium as any,
+  },
+  mapContainer: {
+    flex: 1,
+  },
+  mapScrollView: {
+    flex: 1,
+  },
+  mapContent: {
+    padding: theme.spacing.lg,
+  },
+  mapPlaceholder: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing.xl,
+  },
+  mapPlaceholderTitle: {
+    fontSize: theme.typography.fontSize.xl,
+    fontWeight: theme.typography.fontWeight.bold as any,
+    color: theme.colors.text.primary,
+    marginBottom: theme.spacing.sm,
+  },
+  mapPlaceholderSubtitle: {
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.text.secondary,
+    marginBottom: theme.spacing.xl,
+  },
+  locationGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    gap: theme.spacing.md,
+    marginBottom: theme.spacing.xl,
+  },
+  locationPin: {
+    width: '48%',
+    backgroundColor: theme.colors.background.secondary,
+    borderRadius: theme.borderRadius.lg,
+    padding: theme.spacing.lg,
+    alignItems: 'center',
+    ...theme.shadows.sm,
+  },
+  pinIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: theme.colors.primary[100],
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: theme.spacing.md,
+  },
+  pinEmoji: {
+    fontSize: 24,
+  },
+  pinName: {
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.semibold as any,
+    color: theme.colors.text.primary,
+    textAlign: 'center',
+    marginBottom: theme.spacing.xs,
+    minHeight: 32,
+  },
+  pinDetails: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.text.secondary,
+    marginBottom: theme.spacing.sm,
+  },
+  pinMapButton: {
+    backgroundColor: theme.colors.primary[500],
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: theme.spacing.xs,
+    borderRadius: theme.borderRadius.sm,
+  },
+  pinMapButtonText: {
+    color: theme.colors.text.inverse,
+    fontSize: theme.typography.fontSize.xs,
+    fontWeight: theme.typography.fontWeight.medium as any,
+  },
+  openAllMapsButton: {
+    backgroundColor: theme.colors.primary[600],
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+  },
+  openAllMapsButtonText: {
+    color: theme.colors.text.inverse,
+    fontSize: theme.typography.fontSize.base,
+    fontWeight: theme.typography.fontWeight.semibold as any,
   },
   scrollView: {
     flex: 1,

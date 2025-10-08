@@ -227,7 +227,7 @@ export const theme = {
       },
       sizes: {
         sm: { height: 36, paddingHorizontal: 12, fontSize: 14 },
-        md: { height: 44, paddingHorizontal: 16, fontSize: 16 },
+        md: { height: 54, paddingHorizontal: 16, fontSize: 16 },
         lg: { height: 52, paddingHorizontal: 20, fontSize: 18 },
       },
     },

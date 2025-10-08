@@ -18,17 +18,35 @@ const ItineraryTab = () => {
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
+  const [lastParams, setLastParams] = useState<string>('');
 
   useEffect(() => {
-    generateItinerary();
-  }, [params]);
+    // Create a stable key from params to avoid unnecessary regenerations
+    const currentParamsKey = `${params.destination}-${params.interests}-${params.duration}`;
+    
+    // Only regenerate if the actual values have changed, not just the object reference
+    if (currentParamsKey !== lastParams && params.destination && params.duration) {
+      setLastParams(currentParamsKey);
+      generateItinerary();
+    } else if (!params.destination || !params.duration) {
+      // Handle case where no valid params are provided
+      setLoading(false);
+      setItinerary(null);
+    }
+  }, [params.destination, params.interests, params.duration, lastParams]);
 
   const generateItinerary = async () => {
     try {
       setLoading(true);
       
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Check if we have valid parameters
+      if (!params.destination || !params.duration) {
+        setLoading(false);
+        return;
+      }
+      
+      // Simulate API delay (reduced for better UX)
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       const generated = itineraryGenerator.generateItinerary(
         params.destination as string,
@@ -42,6 +60,7 @@ const ItineraryTab = () => {
         Alert.alert('Error', 'Failed to generate itinerary. Please try again.');
       }
     } catch (error) {
+      console.error('Error generating itinerary:', error);
       Alert.alert('Error', 'Something went wrong. Please try again.');
     } finally {
       setLoading(false);
@@ -80,10 +99,32 @@ const ItineraryTab = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load itinerary</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={generateItinerary}>
-            <Text style={styles.retryButtonText}>Try Again</Text>
-          </TouchableOpacity>
+          <Text style={styles.errorText}>
+            {!params.destination || !params.duration 
+              ? 'No itinerary found' 
+              : 'Failed to load itinerary'
+            }
+          </Text>
+          <Text style={styles.errorSubtext}>
+            {!params.destination || !params.duration
+              ? 'Please create an itinerary from the Home tab first.'
+              : 'Something went wrong while generating your itinerary.'
+            }
+          </Text>
+          <View style={styles.errorButtons}>
+            {!params.destination || !params.duration ? (
+              <TouchableOpacity 
+                style={styles.retryButton} 
+                onPress={() => router.push('/(tabs)/')}
+              >
+                <Text style={styles.retryButtonText}>Go to Home</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.retryButton} onPress={generateItinerary}>
+                <Text style={styles.retryButtonText}>Try Again</Text>
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </SafeAreaView>
     );
@@ -246,7 +287,18 @@ const styles = StyleSheet.create({
   errorText: {
     fontSize: theme.typography.fontSize.lg,
     color: theme.colors.semantic.error[500],
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
+  },
+  errorSubtext: {
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.text.secondary,
     marginBottom: theme.spacing.lg,
+    textAlign: 'center',
+    paddingHorizontal: theme.spacing.lg,
+  },
+  errorButtons: {
+    alignItems: 'center',
   },
   retryButton: {
     backgroundColor: theme.colors.primary[500],
