@@ -12,6 +12,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { theme } from '../../utils/Theme';
 import { itineraryGenerator, GeneratedItinerary, ItineraryDay, ItineraryActivity } from '../../utils/ItineraryGenerator';
+import { usePreMount } from '../../utils/PreMountContext';
+import PreMountableActivityDetails from '../../components/PreMountableActivityDetails';
 
 const ItineraryTab = () => {
   const params = useLocalSearchParams();
@@ -19,6 +21,9 @@ const ItineraryTab = () => {
   const [loading, setLoading] = useState(true);
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
   const [lastParams, setLastParams] = useState<string>('');
+  const [selectedActivity, setSelectedActivity] = useState<ItineraryActivity | null>(null);
+  const [showActivityDetails, setShowActivityDetails] = useState(false);
+  const { preMountAllActivities } = usePreMount();
 
   useEffect(() => {
     // Create a stable key from params to avoid unnecessary regenerations
@@ -56,6 +61,8 @@ const ItineraryTab = () => {
       
       if (generated) {
         setItinerary(generated);
+        // Pre-mount all activity details as soon as itinerary is generated
+        preMountAllActivities(generated);
       } else {
         Alert.alert('Error', 'Failed to generate itinerary. Please try again.');
       }
@@ -82,6 +89,16 @@ const ItineraryTab = () => {
         },
       });
     }
+  };
+
+  const handleActivityPress = (activity: ItineraryActivity) => {
+    setSelectedActivity(activity);
+    setShowActivityDetails(true);
+  };
+
+  const handleCloseActivityDetails = () => {
+    setShowActivityDetails(false);
+    setSelectedActivity(null);
   };
 
   if (loading) {
@@ -164,6 +181,7 @@ const ItineraryTab = () => {
               day={day}
               isExpanded={expandedDay === day.day}
               onToggle={() => toggleDayExpansion(day.day)}
+              onActivityPress={handleActivityPress}
             />
           ))}
         </View>
@@ -187,6 +205,27 @@ const ItineraryTab = () => {
           </View>
         </View>
       </ScrollView>
+
+      {/* Activity Details Modal */}
+      {selectedActivity && (
+        <PreMountableActivityDetails
+          activity={selectedActivity}
+          visible={showActivityDetails}
+          onClose={handleCloseActivityDetails}
+        />
+      )}
+
+      {/* Pre-mounted Activity Details (for instant loading) */}
+      {itinerary.days.map((day) =>
+        day.activities.map((activity) => (
+          <PreMountableActivityDetails
+            key={`premount-${activity.id}`}
+            activity={activity}
+            visible={false}
+            onClose={() => {}}
+          />
+        ))
+      )}
     </SafeAreaView>
   );
 };
@@ -195,9 +234,10 @@ interface DayCardProps {
   day: ItineraryDay;
   isExpanded: boolean;
   onToggle: () => void;
+  onActivityPress: (activity: ItineraryActivity) => void;
 }
 
-const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, onToggle }) => (
+const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, onToggle, onActivityPress }) => (
   <View style={styles.dayCard}>
     <TouchableOpacity style={styles.dayHeader} onPress={onToggle}>
       <View style={styles.dayHeaderLeft}>
@@ -213,7 +253,11 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, onToggle }) => (
     {isExpanded && (
       <View style={styles.dayContent}>
         {day.activities.map((activity, index) => (
-          <ActivityCard key={`${activity.id}-${index}`} activity={activity} />
+          <ActivityCard 
+            key={`${activity.id}-${index}`} 
+            activity={activity} 
+            onPress={onActivityPress}
+          />
         ))}
       </View>
     )}
@@ -222,25 +266,12 @@ const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, onToggle }) => (
 
 interface ActivityCardProps {
   activity: ItineraryActivity;
+  onPress: (activity: ItineraryActivity) => void;
 }
 
-const ActivityCard: React.FC<ActivityCardProps> = ({ activity }) => {
+const ActivityCard: React.FC<ActivityCardProps> = ({ activity, onPress }) => {
   const handleCardPress = () => {
-    router.push({
-      pathname: '/activity-details',
-      params: {
-        id: activity.id,
-        name: activity.name,
-        description: activity.description,
-        type: activity.type,
-        rating: activity.rating.toString(),
-        duration: activity.duration.toString(),
-        timeSlot: activity.timeSlot,
-        latitude: activity.latitude.toString(),
-        longitude: activity.longitude.toString(),
-        category: JSON.stringify(activity.category),
-      },
-    });
+    onPress(activity);
   };
 
   return (
