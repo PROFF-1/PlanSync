@@ -6,6 +6,7 @@ import {
   Dimensions,
   Animated,
   StatusBar,
+  ImageBackground,
 } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { theme } from '../utils/Theme';
@@ -91,12 +92,15 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
 
   return (
     <View style={styles.container}>
-      <LinearGradient
-        colors={['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4']} // Beautiful travel-inspired gradient
-        style={styles.gradient}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 1, y: 1 }}
+      <ImageBackground
+        source={{ uri: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?ixlib=rb-4.0.3&auto=format&fit=crop&w=2340&q=80' }}
+        style={styles.backgroundImage}
+        resizeMode="cover"
       >
+        <LinearGradient
+          colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.5)']}
+          style={styles.gradient}
+        >
           <Animated.View 
             style={[
               styles.content,
@@ -263,6 +267,7 @@ const SplashScreen: React.FC<SplashScreenProps> = ({ onFinish }) => {
             />
           </View>
         </LinearGradient>
+      </ImageBackground>
     </View>
   );
 };
@@ -272,13 +277,16 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: theme.colors.primary[600],
   },
+  backgroundImage: {
+    flex: 1,
+    width: screenWidth,
+    height: screenHeight,
+  },
   gradient: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 40,
-    width: screenWidth,
-    height: screenHeight,
   },
   content: {
     alignItems: 'center',

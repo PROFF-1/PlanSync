@@ -1,6 +1,7 @@
-import { Image, StyleSheet, Text, View, Animated, Dimensions, Alert, ScrollView } from 'react-native'
+import { Image, StyleSheet, Text, View, Animated, Dimensions, Alert, ScrollView, ImageBackground } from 'react-native'
 import React, { useState, useEffect, useRef } from 'react'
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { LinearGradient } from 'expo-linear-gradient';
 import { InputField } from '../components/InputField';
 import { MultiInputField } from '../components/MultiInputField';
 import { Button } from '../components/Button';
@@ -88,12 +89,23 @@ const authenticationscreen = () => {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <Image source={require('../assets/planSync.png')} style={styles.logo} />
-        <Text style={styles.title}>Welcome to PlanSync</Text>
-        <Text style={styles.subtitle}>Plan your perfect trip</Text>
-      </View>
+    <ImageBackground
+      source={{ uri: 'https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?ixlib=rb-4.0.3&auto=format&fit=crop&w=2340&q=80' }}
+      style={styles.backgroundImage}
+      resizeMode="cover"
+    >
+      <LinearGradient
+        colors={['rgba(0,0,0,0.2)', 'rgba(0,0,0,0.3)', 'rgba(0,0,0,0.4)']}
+        style={styles.gradientOverlay}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <View style={styles.logoContainer}>
+              <Text style={styles.logoIcon}>✈️</Text>
+            </View>
+            <Text style={styles.title}>Welcome to PlanSync</Text>
+            <Text style={styles.subtitle}>Plan your perfect trip</Text>
+          </View>
       
       {/* Login Form */}
       <Animated.View style={[styles.formContainer, { transform: [{ translateX: slideOut }] }]}>
@@ -104,12 +116,14 @@ const authenticationscreen = () => {
           onChangeText={(text) => setFormData({...formData, email: text})}
           keyboardType="email-address"
           autoCapitalize="none"
+          labelStyle={styles.inputLabel}
         />
         <InputField 
           label="Password" 
           value={formData.password}
           onChangeText={(text) => setFormData({...formData, password: text})}
           secureTextEntry 
+          labelStyle={styles.inputLabel}
         />
         <Button 
           title="Sign In" 
@@ -139,6 +153,7 @@ const authenticationscreen = () => {
             value={formData.name}
             onChangeText={(text) => setFormData({...formData, name: text})}
             autoCapitalize="words"
+            labelStyle={styles.inputLabel}
           />
           <InputField 
             label="Email" 
@@ -146,18 +161,21 @@ const authenticationscreen = () => {
             onChangeText={(text) => setFormData({...formData, email: text})}
             keyboardType="email-address"
             autoCapitalize="none"
+            labelStyle={styles.inputLabel}
           />
           <InputField 
             label="Password" 
             value={formData.password}
             onChangeText={(text) => setFormData({...formData, password: text})}
             secureTextEntry 
+            labelStyle={styles.inputLabel}
           />
           <InputField 
             label="Confirm Password" 
             value={formData.confirmPassword}
             onChangeText={(text) => setFormData({...formData, confirmPassword: text})}
             secureTextEntry 
+            labelStyle={styles.inputLabel}
           />
           
           {/* Demo Components */}
@@ -184,39 +202,68 @@ const authenticationscreen = () => {
           </Text>
         </View>
       </Animated.View>
-    </SafeAreaView>
+        </SafeAreaView>
+      </LinearGradient>
+    </ImageBackground>
   )
 }
 
 export default authenticationscreen
 
 const styles = StyleSheet.create({
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+  },
+  gradientOverlay: {
+    flex: 1,
+  },
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background.primary,
+    backgroundColor: 'transparent',
   },
   header: {
     alignItems: 'center',
-    paddingTop: 30,
-    paddingBottom: 40,
+    paddingTop: 40,
+    paddingBottom: 50,
     paddingHorizontal: 20,
   },
-  logo: {
-    width: 120,
-    height: 120,
-    marginBottom: 10,
+  logoContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 70,
+    padding: 15,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 8,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 15,
+    elevation: 10,
+  },
+  logoIcon: {
+    fontSize: 48,
+    textAlign: 'center',
   },
   title: {
     fontSize: 28,
     fontWeight: 'bold',
-    color: theme.colors.text.primary,
+    color: '#FFFFFF',
     marginBottom: 10,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   subtitle: {
     fontSize: 16,
-    color: theme.colors.text.secondary,
+    color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   formContainer: {
     flex: 1,
@@ -248,9 +295,12 @@ const styles = StyleSheet.create({
   formTitle: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: theme.colors.text.primary,
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 30,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 4,
   },
   authButton: {
     marginTop: 20,
@@ -258,11 +308,21 @@ const styles = StyleSheet.create({
   },
   switchText: {
     textAlign: 'center',
-    color: theme.colors.text.secondary,
+    color: 'rgba(255, 255, 255, 0.9)',
     fontSize: 16,
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   switchLink: {
     fontWeight: 'bold',
-    color: theme.colors.primary[500],
+    color: '#4ECDC4',
+  },
+  inputLabel: {
+    color: '#FFFFFF',
+    fontWeight: '500',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
 })
