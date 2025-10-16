@@ -845,6 +845,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: theme.spacing.lg,
+    paddingBottom: 120, // Extra padding for floating tab bar
   },
   destinationInfo: {
     marginBottom: theme.spacing.xl,

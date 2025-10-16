@@ -14,16 +14,74 @@ import { theme } from '../../utils/Theme';
 import { itineraryGenerator, GeneratedItinerary, ItineraryDay, ItineraryActivity } from '../../utils/ItineraryGenerator';
 import { usePreMount } from '../../utils/PreMountContext';
 import PreMountableActivityDetails from '../../components/PreMountableActivityDetails';
+import { useAuth } from '../../utils/AuthContext';
+import { saveItinerary, ItineraryFirestore } from '../../utils/firebaseFirestore';
 
 const ItineraryTab = () => {
   const params = useLocalSearchParams();
+  const { user } = useAuth();
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
   const [lastParams, setLastParams] = useState<string>('');
   const [selectedActivity, setSelectedActivity] = useState<ItineraryActivity | null>(null);
   const [showActivityDetails, setShowActivityDetails] = useState(false);
+  const [saving, setSaving] = useState(false);
   const { preMountAllActivities } = usePreMount();
+
+  const saveItineraryToFirebase = async (itineraryToSave: GeneratedItinerary) => {
+    if (!user || !itineraryToSave) return;
+    
+    try {
+      setSaving(true);
+      
+      // Calculate start and end dates
+      const startDate = new Date();
+      const endDate = new Date();
+      endDate.setDate(startDate.getDate() + itineraryToSave.totalDays - 1);
+      
+      const itineraryData: Omit<ItineraryFirestore, 'id' | 'createdAt' | 'updatedAt'> = {
+        userId: user.uid,
+        title: `${itineraryToSave.destination.name} Trip`,
+        destination: itineraryToSave.destination.name,
+        startDate: startDate,
+        endDate: endDate,
+        totalDays: itineraryToSave.totalDays,
+        preferences: {
+          interests: itineraryToSave.preferences.interests,
+          duration: itineraryToSave.totalDays.toString() + ' days',
+        },
+        days: itineraryToSave.days.map(day => ({
+          day: day.day,
+          date: day.date,
+          activities: day.activities.map(activity => ({
+            id: activity.id,
+            name: activity.name,
+            type: activity.type as 'activity' | 'attraction' | 'restaurant' | 'hotel',
+            category: [activity.type],
+            description: activity.description,
+            latitude: activity.latitude,
+            longitude: activity.longitude,
+            duration: activity.duration,
+            rating: activity.rating,
+            timeSlot: activity.timeSlot,
+          })),
+          totalDuration: day.totalDuration,
+        })),
+        isPublic: false,
+        likes: 0,
+        tags: [itineraryToSave.preferences.interests.toLowerCase()],
+      };
+      
+      const itineraryId = await saveItinerary(itineraryData);
+      Alert.alert('Success', 'Your itinerary has been saved!');
+    } catch (error) {
+      console.error('Error saving itinerary:', error);
+      Alert.alert('Error', 'Failed to save itinerary. Please try again.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   useEffect(() => {
     // Create a stable key from params to avoid unnecessary regenerations
@@ -63,6 +121,11 @@ const ItineraryTab = () => {
         setItinerary(generated);
         // Pre-mount all activity details as soon as itinerary is generated
         preMountAllActivities(generated);
+        
+        // Auto-save to Firebase if user is logged in
+        if (user) {
+          await saveItineraryToFirebase(generated);
+        }
       } else {
         Alert.alert('Error', 'Failed to generate itinerary. Please try again.');
       }
@@ -105,7 +168,9 @@ const ItineraryTab = () => {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>Generating your itinerary...</Text>
+          <Text style={styles.loadingText}>
+            {saving ? 'Saving to your account...' : 'Generating your itinerary...'}
+          </Text>
           <Text style={styles.loadingSubtext}>This may take a moment</Text>
         </View>
       </SafeAreaView>
@@ -166,11 +231,23 @@ const ItineraryTab = () => {
           </Text>
         </View>
 
-        {/* View on Map Button */}
-        <View style={styles.mapButtonContainer}>
+        {/* Action Buttons */}
+        <View style={styles.actionButtonsContainer}>
           <TouchableOpacity style={styles.mapButton} onPress={handleViewOnMap}>
             <Text style={styles.mapButtonText}>🗺️ View on Map</Text>
           </TouchableOpacity>
+          
+          {user && (
+            <TouchableOpacity 
+              style={[styles.saveButton, saving && styles.saveButtonDisabled]} 
+              onPress={() => saveItineraryToFirebase(itinerary)}
+              disabled={saving}
+            >
+              <Text style={styles.saveButtonText}>
+                {saving ? '💾 Saving...' : '💾 Save Trip'}
+              </Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Days List */}
@@ -318,7 +395,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: theme.spacing['2xl'],
+    paddingBottom: 120, // Extra padding for floating tab bar
   },
   loadingContainer: {
     flex: 1,
@@ -387,9 +464,11 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.base,
     color: theme.colors.primary[600],
   },
-  mapButtonContainer: {
+  actionButtonsContainer: {
     paddingHorizontal: theme.spacing.lg,
     marginBottom: theme.spacing.lg,
+    flexDirection: 'row',
+    gap: theme.spacing.md,
   },
   mapButton: {
     backgroundColor: theme.colors.primary[500],
@@ -397,8 +476,26 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.spacing.lg,
     borderRadius: theme.borderRadius.md,
     alignItems: 'center',
+    flex: 1,
   },
   mapButtonText: {
+    color: theme.colors.text.inverse,
+    fontSize: theme.typography.fontSize.base,
+    fontWeight: theme.typography.fontWeight.semibold as any,
+  },
+  saveButton: {
+    backgroundColor: theme.colors.semantic.success[500],
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.lg,
+    borderRadius: theme.borderRadius.md,
+    alignItems: 'center',
+    flex: 1,
+  },
+  saveButtonDisabled: {
+    backgroundColor: theme.colors.text.tertiary,
+    opacity: 0.7,
+  },
+  saveButtonText: {
     color: theme.colors.text.inverse,
     fontSize: theme.typography.fontSize.base,
     fontWeight: theme.typography.fontWeight.semibold as any,

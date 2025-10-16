@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -6,13 +6,18 @@ import {
   ScrollView,
   Alert,
   StatusBar,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { DrawerActions } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../utils/Theme';
 import { PickerField } from '../../components/PickerField';
 import { Button } from '../../components/Button';
 import { destinationOptions, interestCategories, durationOptions } from '../../utils/MockData';
+import { useAuth } from '../../utils/AuthContext';
 
 interface TravelPreferences {
   destination: string;
@@ -21,6 +26,8 @@ interface TravelPreferences {
 }
 
 const index = () => {
+  const { user, userProfile, loading: authLoading, signOut } = useAuth();
+  const navigation = useNavigation();
   const [preferences, setPreferences] = useState<TravelPreferences>({
     destination: '',
     interests: '',
@@ -28,6 +35,35 @@ const index = () => {
   });
   const [errors, setErrors] = useState<Partial<TravelPreferences>>({});
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!authLoading && !user) {
+      router.replace('/');
+    }
+  }, [user, authLoading]);
+
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+      router.replace('/');
+    } catch (error: any) {
+      Alert.alert('Error', 'Failed to sign out');
+    }
+  };
+
+  if (authLoading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!user) {
+    return null; // Will redirect to login
+  }
 
   const validateForm = (): boolean => {
     const newErrors: Partial<TravelPreferences> = {};
@@ -89,6 +125,13 @@ const index = () => {
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
+        {/* Header Section */}
+        <View style={styles.drawerSection}>
+          <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+            <Ionicons name="menu" size={28} color={theme.colors.text.primary} />
+          </TouchableOpacity>
+        </View>
+    
         <View style={styles.header}>
           <Text style={styles.title}>Plan Your Trip</Text>
           <Text style={styles.subtitle}>
@@ -185,7 +228,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: theme.spacing['2xl'],
+    paddingBottom: 120, // Extra padding for floating tab bar
   },
   header: {
     paddingHorizontal: theme.spacing.lg,
@@ -252,5 +295,49 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.sm,
     color: theme.colors.text.secondary,
     lineHeight: theme.typography.lineHeight.normal * theme.typography.fontSize.sm,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    fontSize: theme.typography.fontSize.lg,
+    color: theme.colors.text.secondary,
+  },
+  drawerSection: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.lg,
+    paddingVertical: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    zIndex: 10,
+    gap: theme.spacing.md,
+  },
+  welcomeText: {
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.semibold as any,
+    color: theme.colors.text.primary,
+  },
+  userEmail: {
+    fontSize: theme.typography.fontSize.sm,
+    color: theme.colors.text.secondary,
+    marginTop: 2,
+  },
+  signOutButton: {
+    backgroundColor: '#ef4444',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.md,
+  },
+  signOutText: {
+    color: 'white',
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.medium as any,
   },
 });
