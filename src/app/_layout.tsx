@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router/stack';
 import { Drawer } from 'expo-router/drawer';
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PreMountProvider } from '../utils/PreMountContext';
@@ -9,6 +9,7 @@ import { SplashProvider, useSplash } from '../utils/SplashContext';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/Theme';
 import SplashScreen from '../components/SplashScreen';
+import { ensureAuthPersistence } from '../utils/firebaseAuth';
 
 // Inner Layout Component that uses splash context
 const InnerLayout = () => {
@@ -54,6 +55,26 @@ const InnerLayout = () => {
         }} 
       />
       <Drawer.Screen 
+        name="memories" 
+        options={{ 
+          headerShown: false,
+          drawerLabel: 'Memories',
+          drawerIcon: ({ color, size }: { color: string; size: number }) => (
+            <Ionicons name="camera-outline" size={size} color={color} />
+          ),
+        }} 
+      />
+      <Drawer.Screen 
+        name="history" 
+        options={{ 
+          headerShown: false,
+          drawerLabel: 'History',
+          drawerIcon: ({ color, size }: { color: string; size: number }) => (
+            <Ionicons name="time-outline" size={size} color={color} />
+          ),
+        }} 
+      />
+      <Drawer.Screen 
         name="activity-details" 
         options={{ 
           headerShown: false,
@@ -68,6 +89,20 @@ const InnerLayout = () => {
 };
 
 const Layout = () => {
+  // Initialize authentication persistence on app startup
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        await ensureAuthPersistence();
+        console.log('Authentication persistence initialized');
+      } catch (error) {
+        console.error('Failed to initialize auth persistence:', error);
+      }
+    };
+    
+    initializeAuth();
+  }, []);
+
   return (
     <SafeAreaProvider>
       <AuthProvider>

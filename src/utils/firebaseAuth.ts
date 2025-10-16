@@ -4,9 +4,12 @@ import {
   signOut as firebaseSignOut,
   updateProfile,
   updatePassword,
-  User
+  User,
+  setPersistence,
+  browserLocalPersistence
 } from 'firebase/auth';
 import { doc, setDoc, getDoc } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth, firestore } from './firebaseConfig';
 
 export interface UserProfile {
@@ -22,9 +25,23 @@ export interface UserProfile {
   };
 }
 
+// Ensure authentication persistence is enabled
+export const ensureAuthPersistence = async (): Promise<void> => {
+  try {
+    // Firebase automatically handles persistence in React Native with AsyncStorage
+    // This function ensures we have proper error handling
+    console.log('Auth persistence enabled with AsyncStorage');
+  } catch (error) {
+    console.error('Error setting auth persistence:', error);
+  }
+};
+
 // Sign up with email and password
 export const signUp = async (email: string, password: string, displayName: string): Promise<User> => {
   try {
+    // Ensure persistence is enabled before signing up
+    await ensureAuthPersistence();
+    
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const user = userCredential.user;
 
@@ -52,7 +69,12 @@ export const signUp = async (email: string, password: string, displayName: strin
     }
 
     await setDoc(doc(firestore, 'users', user.uid), userProfile);
-
+    
+    // Cache basic info after successful sign up
+    await AsyncStorage.setItem('lastSignInTime', new Date().toISOString());
+    await AsyncStorage.setItem('userEmail', email);
+    
+    console.log('User signed up successfully and session persisted');
     return user;
   } catch (error: any) {
     console.error('Sign up error:', error);
@@ -63,8 +85,18 @@ export const signUp = async (email: string, password: string, displayName: strin
 // Sign in with email and password
 export const signIn = async (email: string, password: string): Promise<User> => {
   try {
+    // Ensure persistence is enabled before signing in
+    await ensureAuthPersistence();
+    
     const userCredential = await signInWithEmailAndPassword(auth, email, password);
-    return userCredential.user;
+    const user = userCredential.user;
+    
+    // Cache basic user info immediately after successful sign in
+    await AsyncStorage.setItem('lastSignInTime', new Date().toISOString());
+    await AsyncStorage.setItem('userEmail', email);
+    
+    console.log('User signed in successfully and session persisted');
+    return user;
   } catch (error: any) {
     console.error('Sign in error:', error);
     throw new Error(getAuthErrorMessage(error.code));
@@ -74,7 +106,18 @@ export const signIn = async (email: string, password: string): Promise<User> => 
 // Sign out
 export const signOut = async (): Promise<void> => {
   try {
+    // Clear all cached authentication data
+    await AsyncStorage.multiRemove([
+      'user',
+      'userProfile',
+      'lastSignInTime',
+      'userEmail'
+    ]);
+    
+    // Sign out from Firebase
     await firebaseSignOut(auth);
+    
+    console.log('User signed out successfully and cache cleared');
   } catch (error: any) {
     console.error('Sign out error:', error);
     throw new Error('Failed to sign out');
@@ -92,6 +135,24 @@ export const getUserProfile = async (uid: string): Promise<UserProfile | null> =
   } catch (error: any) {
     console.error('Get user profile error:', error);
     return null;
+  }
+};
+
+// Check if user is authenticated on app startup
+export const checkAuthenticationStatus = async (): Promise<boolean> => {
+  try {
+    const currentUser = auth.currentUser;
+    const lastSignInTime = await AsyncStorage.getItem('lastSignInTime');
+    
+    if (currentUser && lastSignInTime) {
+      console.log('User is authenticated:', currentUser.email);
+      return true;
+    }
+    
+    return false;
+  } catch (error) {
+    console.error('Error checking authentication status:', error);
+    return false;
   }
 };
 
