@@ -40,15 +40,19 @@ const MapTab = () => {
   }, []);
 
   useEffect(() => {
+    console.log('Map screen received params:', params);
+    
     // Create a stable key from params to avoid unnecessary regenerations
     const currentParamsKey = `${params.destination}-${params.interests}-${params.duration}`;
     
     // Only regenerate if the actual values have changed, not just the object reference
     if (currentParamsKey !== lastParams && params.destination && params.duration) {
+      console.log('Loading itinerary with new params:', currentParamsKey);
       setLastParams(currentParamsKey);
       loadItinerary();
     } else if (!params.destination || !params.duration) {
       // Handle case where no valid params are provided
+      console.log('No valid params provided to map screen');
       setLoading(false);
       setItinerary(null);
     }

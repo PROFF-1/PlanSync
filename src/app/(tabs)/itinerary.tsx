@@ -7,7 +7,10 @@ import {
   StatusBar,
   TouchableOpacity,
   Alert,
+  Image,
+  ImageBackground,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -28,12 +31,33 @@ const ItineraryTab = () => {
   const { refreshItineraries } = useItinerary();
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
   const [loading, setLoading] = useState(true);
-  const [expandedDay, setExpandedDay] = useState<number | null>(null);
+  const [isManuallyCleared, setIsManuallyCleared] = useState(false);
   const [lastParams, setLastParams] = useState<string>('');
   const [selectedActivity, setSelectedActivity] = useState<ItineraryActivity | null>(null);
   const [showActivityDetails, setShowActivityDetails] = useState(false);
   const [saving, setSaving] = useState(false);
   const { preMountAllActivities } = usePreMount();
+
+  const getDestinationImage = (destinationName: string) => {
+    const destinationImages: { [key: string]: string } = {
+      'Accra': 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
+      'Dubai': 'https://images.unsplash.com/photo-1512453979798-5ea266f8880c?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
+      'Paris': 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
+      'Tokyo': 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
+      'New York': 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
+      'London': 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80',
+    };
+    
+    return destinationImages[destinationName] || 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80';
+  };
+
+  const getEmptyStateImage = () => {
+    // Use destination image if available, otherwise use inspirational travel image
+    if (params.destination) {
+      return getDestinationImage(params.destination as string);
+    }
+    return 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80';
+  };
 
   const saveItineraryToFirebase = async (itineraryToSave: GeneratedItinerary) => {
     if (!user || !itineraryToSave) return;
@@ -94,6 +118,11 @@ const ItineraryTab = () => {
   };
 
   useEffect(() => {
+    // Skip regeneration if the itinerary was manually cleared
+    if (isManuallyCleared) {
+      return;
+    }
+
     // Create a stable key from params to avoid unnecessary regenerations
     const currentParamsKey = `${params.destination}-${params.interests}-${params.duration}`;
     
@@ -106,11 +135,13 @@ const ItineraryTab = () => {
       setLoading(false);
       setItinerary(null);
     }
-  }, [params.destination, params.interests, params.duration, lastParams]);
+  }, [params.destination, params.interests, params.duration, lastParams, isManuallyCleared]);
 
   const generateItinerary = async () => {
     try {
       setLoading(true);
+      // Reset manual clear flag when generating new itinerary
+      setIsManuallyCleared(false);
       
       // Check if we have valid parameters
       if (!params.destination || !params.duration) {
@@ -142,12 +173,16 @@ const ItineraryTab = () => {
     }
   };
 
-  const toggleDayExpansion = (dayNumber: number) => {
-    setExpandedDay(expandedDay === dayNumber ? null : dayNumber);
-  };
+
 
   const handleViewOnMap = () => {
     if (itinerary) {
+      console.log('Navigating to map with params:', {
+        destination: params.destination,
+        interests: params.interests,
+        duration: params.duration,
+      });
+      
       router.push({
         pathname: '/(tabs)/map',
         params: {
@@ -156,6 +191,9 @@ const ItineraryTab = () => {
           duration: params.duration,
         },
       });
+    } else {
+      console.log('No itinerary available for map navigation');
+      Alert.alert('Error', 'No itinerary data available to display on map.');
     }
   };
 
@@ -169,77 +207,224 @@ const ItineraryTab = () => {
     setSelectedActivity(null);
   };
 
+  const handleClearItinerary = () => {
+    Alert.alert(
+      'Clear Itinerary',
+      'Are you sure you want to clear the current itinerary? This will return you to the empty state.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        { 
+          text: 'Clear', 
+          style: 'destructive',
+          onPress: () => {
+            // Set flag to prevent automatic regeneration
+            setIsManuallyCleared(true);
+            // Clear itinerary state and params to show no itinerary view
+            setItinerary(null);
+            setLastParams('');
+            // Note: We stay on the same screen, it will show the no itinerary view
+          }
+        }
+      ]
+    );
+  };
+
   if (loading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <Text style={styles.loadingText}>
-            {saving ? 'Saving to your account...' : 'Generating your itinerary...'}
-          </Text>
-          <Text style={styles.loadingSubtext}>This may take a moment</Text>
-        </View>
-      </SafeAreaView>
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        
+        {/* Loading State Header */}
+        <ImageBackground
+          source={{
+            uri: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1200&q=80'
+          }}
+          style={styles.emptyStateBackground}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.8)']}
+            style={styles.emptyStateOverlay}
+          >
+            <View style={styles.emptyStateContent}>
+              {/* Hamburger Menu */}
+              <View style={styles.topBar}>
+                <TouchableOpacity 
+                  style={styles.hamburgerButton}
+                  onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                >
+                  <Ionicons name="menu" size={28} color={theme.colors.text.inverse} />
+                </TouchableOpacity>
+                <View /> {/* Spacer for loading state */}
+              </View>
+              
+              {/* Loading State Message */}
+              <View style={styles.emptyStateMessageContainer}>
+                <View style={styles.emptyStateIcon}>
+                  <Ionicons name="hourglass-outline" size={80} color={theme.colors.text.inverse} />
+                </View>
+                <Text style={styles.emptyStateTitle}>
+                  {saving ? 'Saving Trip' : 'Creating Your Itinerary'}
+                </Text>
+                <Text style={styles.emptyStateSubtitle}>
+                  {saving 
+                    ? 'Saving your amazing itinerary to your account...' 
+                    : 'We\'re crafting the perfect travel experience for you. This may take a moment.'
+                  }
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
+      </View>
     );
   }
 
   if (!itinerary) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>
-            {!params.destination || !params.duration 
-              ? 'No itinerary found' 
-              : 'Failed to load itinerary'
-            }
-          </Text>
-          <Text style={styles.errorSubtext}>
-            {!params.destination || !params.duration
-              ? 'Please create an itinerary from the Home tab first.'
-              : 'Something went wrong while generating your itinerary.'
-            }
-          </Text>
-          <View style={styles.errorButtons}>
-            {!params.destination || !params.duration ? (
+      <View style={styles.container}>
+        <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
+        <ScrollView 
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          {/* Header - Same as generated itinerary */}
+          <ImageBackground
+            source={{
+              uri: getEmptyStateImage()
+            }}
+            style={styles.headerBackground}
+            resizeMode="cover"
+          >
+            <LinearGradient
+              colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.7)']}
+              style={styles.headerOverlay}
+            >
+              <View style={styles.headerContent}>
+                <View style={styles.topBar}>
+                  <TouchableOpacity 
+                    style={styles.hamburgerButton}
+                    onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                  >
+                    <Ionicons name="menu" size={28} color={theme.colors.text.inverse} />
+                  </TouchableOpacity>
+                  
+                  <View /> {/* Empty spacer for no itinerary view */}
+                </View>
+                
+                <View style={styles.headerTextContainer}>
+                  <Text style={styles.headerTitle}>Your Itinerary</Text>
+                  <Text style={styles.headerSubtitle}>
+                    {params.destination && params.duration 
+                      ? `Ready for ${params.destination}` 
+                      : 'Ready for Adventure'
+                    }
+                  </Text>
+                  <Text style={styles.headerPreferences}>
+                    {params.interests 
+                      ? `Focused on ${params.interests}` 
+                      : 'Create your perfect trip'
+                    }
+                  </Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </ImageBackground>
+
+          {/* Story Peek Content - Instead of itinerary cards */}
+          <View style={styles.noItineraryContainer}>
+            <View style={styles.storyPeekCard}>
+              <View style={styles.storyPeekIconContainer}>
+                <Ionicons name="map-outline" size={60} color={theme.colors.primary[500]} />
+              </View>
+              
+              <Text style={styles.storyPeekTitle}>
+                {isManuallyCleared || !params.destination || !params.duration
+                  ? 'No Itinerary Yet'
+                  : 'Failed to Load Itinerary'
+                }
+              </Text>
+              
+              <Text style={styles.storyPeekDescription}>
+                {isManuallyCleared || !params.destination || !params.duration
+                  ? 'Ready to plan your next adventure? Head home to create a personalized travel itinerary with amazing destinations, activities, and experiences tailored just for you!'
+                  : 'Something went wrong while generating your itinerary. Please try again or return home to create a new one.'
+                }
+              </Text>
+
+              {/* Action Button */}
               <TouchableOpacity 
-                style={styles.retryButton} 
-                onPress={() => router.push('/(tabs)/')}
+                style={styles.storyPeekButton}
+                onPress={() => {
+                  if (isManuallyCleared || !params.destination || !params.duration) {
+                    router.push('/(tabs)/');
+                  } else {
+                    generateItinerary();
+                  }
+                }}
               >
-                <Text style={styles.retryButtonText}>Go to Home</Text>
+                <Text style={styles.storyPeekButtonText}>
+                  {isManuallyCleared || !params.destination || !params.duration ? '🏠 Go to Home' : '🔄 Try Again'}
+                </Text>
               </TouchableOpacity>
-            ) : (
-              <TouchableOpacity style={styles.retryButton} onPress={generateItinerary}>
-                <Text style={styles.retryButtonText}>Try Again</Text>
-              </TouchableOpacity>
-            )}
+            </View>
           </View>
-        </View>
-      </SafeAreaView>
+        </ScrollView>
+      </View>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="dark-content" backgroundColor={theme.colors.background.primary} />
+    <View style={styles.container}>
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
       <ScrollView 
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-              <Ionicons name="menu" size={28} color={theme.colors.primary[500]} />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.title}>Your Itinerary</Text>
-          <Text style={styles.subtitle}>
-            {itinerary.totalDays} days in {itinerary.destination.name}
-          </Text>
-          <Text style={styles.preferences}>
-            Focused on {itinerary.preferences.interests}
-          </Text>
-        </View>
+        {/* Imagery Header */}
+        <ImageBackground
+          source={{
+            uri: getDestinationImage(itinerary.destination.name)
+          }}
+          style={styles.headerBackground}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['rgba(0,0,0,0.4)', 'rgba(0,0,0,0.7)']}
+            style={styles.headerOverlay}
+          >
+            <View style={styles.headerContent}>
+              <View style={styles.topBar}>
+                <TouchableOpacity 
+                  style={styles.hamburgerButton}
+                  onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                >
+                  <Ionicons name="menu" size={28} color={theme.colors.text.inverse} />
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.clearButton}
+                  onPress={handleClearItinerary}
+                >
+                  <Ionicons name="refresh" size={24} color={theme.colors.text.inverse} />
+                  <Text style={styles.clearButtonText}>Clear</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.headerTextContainer}>
+                <Text style={styles.headerTitle}>Your Itinerary</Text>
+                <Text style={styles.headerSubtitle}>
+                  {itinerary.totalDays} days in {itinerary.destination.name}
+                </Text>
+                <Text style={styles.headerPreferences}>
+                  Focused on {itinerary.preferences.interests}
+                </Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
 
         {/* Action Buttons */}
         <View style={styles.actionButtonsContainer}>
@@ -266,8 +451,6 @@ const ItineraryTab = () => {
             <DayCard
               key={day.day}
               day={day}
-              isExpanded={expandedDay === day.day}
-              onToggle={() => toggleDayExpansion(day.day)}
               onActivityPress={handleActivityPress}
             />
           ))}
@@ -313,41 +496,37 @@ const ItineraryTab = () => {
           />
         ))
       )}
-    </SafeAreaView>
+    </View>
   );
 };
 
 interface DayCardProps {
   day: ItineraryDay;
-  isExpanded: boolean;
-  onToggle: () => void;
   onActivityPress: (activity: ItineraryActivity) => void;
 }
 
-const DayCard: React.FC<DayCardProps> = ({ day, isExpanded, onToggle, onActivityPress }) => (
-  <View style={styles.dayCard}>
-    <TouchableOpacity style={styles.dayHeader} onPress={onToggle}>
+const DayCard: React.FC<DayCardProps> = ({ day, onActivityPress }) => (
+  <View style={styles.daySection}>
+    <View style={styles.dayHeader}>
       <View style={styles.dayHeaderLeft}>
         <Text style={styles.dayNumber}>Day {day.day}</Text>
         <Text style={styles.dayDate}>{day.date}</Text>
       </View>
       <View style={styles.dayHeaderRight}>
-        <Text style={styles.dayDuration}>{day.totalDuration}h</Text>
-        <Text style={styles.expandIcon}>{isExpanded ? '▼' : '▶'}</Text>
+        <Text style={styles.dayDuration}>{day.totalDuration}h total</Text>
+        <Text style={styles.activitiesCount}>{day.activities.length} activities</Text>
       </View>
-    </TouchableOpacity>
+    </View>
     
-    {isExpanded && (
-      <View style={styles.dayContent}>
-        {day.activities.map((activity, index) => (
-          <ActivityCard 
-            key={`${activity.id}-${index}`} 
-            activity={activity} 
-            onPress={onActivityPress}
-          />
-        ))}
-      </View>
-    )}
+    <View style={styles.dayContent}>
+      {day.activities.map((activity, index) => (
+        <ActivityCard 
+          key={`${activity.id}-${index}`} 
+          activity={activity} 
+          onPress={onActivityPress}
+        />
+      ))}
+    </View>
   </View>
 );
 
@@ -361,22 +540,45 @@ const ActivityCard: React.FC<ActivityCardProps> = ({ activity, onPress }) => {
     onPress(activity);
   };
 
+  const getDefaultImage = (type: string) => {
+    switch (type) {
+      case 'restaurant':
+        return 'https://images.unsplash.com/photo-1514933651103-005eec06c04b?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80';
+      case 'hotel':
+        return 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80';
+      case 'activity':
+        return 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80';
+      default:
+        return 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=400&q=80';
+    }
+  };
+
   return (
     <TouchableOpacity style={styles.activityCard} onPress={handleCardPress}>
-      <View style={styles.activityHeader}>
-        <Text style={styles.activityName}>{activity.name}</Text>
-        <Text style={styles.activityRating}>⭐ {activity.rating}</Text>
-      </View>
-      <Text style={styles.activityTime}>{activity.timeSlot}</Text>
-      <Text style={styles.activityDescription} numberOfLines={2}>
-        {activity.description}
-      </Text>
-      <View style={styles.activityMeta}>
-        <Text style={styles.activityDuration}>{activity.duration}h</Text>
-        <Text style={styles.activityType}>{activity.type}</Text>
-      </View>
-      <View style={styles.tapHint}>
-        <Text style={styles.tapHintText}>Tap for details →</Text>
+      <Image 
+        source={{ uri: activity.imageUrl || getDefaultImage(activity.type) }}
+        style={styles.activityImage}
+        resizeMode="cover"
+      />
+      <View style={styles.activityContent}>
+        <View style={styles.activityHeader}>
+          <Text style={styles.activityName}>{activity.name}</Text>
+          <View style={styles.activityRatingContainer}>
+            <Text style={styles.activityRating}>⭐ {activity.rating}</Text>
+          </View>
+        </View>
+        <Text style={styles.activityTime}>{activity.timeSlot}</Text>
+        <Text style={styles.activityDescription} numberOfLines={2}>
+          {activity.description}
+        </Text>
+        <View style={styles.activityMeta}>
+          <View style={styles.activityDurationContainer}>
+            <Text style={styles.activityDuration}>{activity.duration}h</Text>
+          </View>
+          <View style={styles.activityTypeContainer}>
+            <Text style={styles.activityType}>{activity.type}</Text>
+          </View>
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -422,78 +624,223 @@ const styles = StyleSheet.create({
     fontSize: theme.typography.fontSize.base,
     color: theme.colors.text.secondary,
   },
-  errorContainer: {
+  // Empty State Styles
+  emptyStateBackground: {
+    flex: 1,
+    width: '100%',
+  },
+  emptyStateOverlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  emptyStateContent: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+  },
+  emptyStateMessageContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: theme.spacing.lg,
   },
-  errorText: {
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.semantic.error[500],
+  emptyStateIcon: {
+    marginBottom: theme.spacing.xl,
+    opacity: 0.8,
+  },
+  emptyStateTitle: {
+    fontSize: theme.typography.fontSize['3xl'],
+    fontWeight: theme.typography.fontWeight.bold as any,
+    color: theme.colors.text.inverse,
     marginBottom: theme.spacing.md,
     textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 3,
   },
-  errorSubtext: {
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.text.secondary,
-    marginBottom: theme.spacing.lg,
-    textAlign: 'center',
-    paddingHorizontal: theme.spacing.lg,
-  },
-  errorButtons: {
-    alignItems: 'center',
-  },
-  retryButton: {
-    backgroundColor: theme.colors.primary[500],
-    paddingHorizontal: theme.spacing.lg,
-    paddingVertical: theme.spacing.md,
-    borderRadius: theme.borderRadius.md,
-  },
-  retryButtonText: {
+  emptyStateSubtitle: {
+    fontSize: theme.typography.fontSize.lg,
     color: theme.colors.text.inverse,
-    fontWeight: theme.typography.fontWeight.semibold as any,
+    marginBottom: theme.spacing.xl,
+    textAlign: 'center',
+    lineHeight: theme.typography.lineHeight.relaxed * theme.typography.fontSize.lg,
+    opacity: 0.9,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
-  header: {
-    paddingHorizontal: theme.spacing.lg,
-    paddingTop: theme.spacing.lg,
-    paddingBottom: theme.spacing.md,
+  emptyStateButton: {
+    backgroundColor: theme.colors.primary[500],
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.lg,
+    borderRadius: theme.borderRadius.xl,
+    ...theme.shadows.lg,
+    elevation: 8,
+  },
+  emptyStateButtonText: {
+    color: theme.colors.text.inverse,
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.bold as any,
+    textAlign: 'center',
+  },
+  // Story Peek Styles (for no itinerary state)
+  noItineraryContainer: {
+    padding: theme.spacing.lg,
+  },
+  storyPeekCard: {
+    backgroundColor: theme.colors.background.secondary,
+    borderRadius: theme.borderRadius.xl,
+    padding: theme.spacing.xl,
     alignItems: 'center',
+    ...theme.shadows.lg,
+    elevation: 8,
   },
-  topBar: {
-    flexDirection: 'row',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    width: '100%',
-    marginBottom: 15,
+  storyPeekIconContainer: {
+    marginBottom: theme.spacing.lg,
+    padding: theme.spacing.lg,
+    borderRadius: theme.borderRadius.full,
+    backgroundColor: theme.colors.primary[50],
   },
-  title: {
+  storyPeekTitle: {
     fontSize: theme.typography.fontSize['2xl'],
     fontWeight: theme.typography.fontWeight.bold as any,
     color: theme.colors.text.primary,
-    marginBottom: theme.spacing.xs,
+    marginBottom: theme.spacing.md,
+    textAlign: 'center',
   },
-  subtitle: {
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.text.secondary,
-    marginBottom: theme.spacing.xs,
-  },
-  preferences: {
+  storyPeekDescription: {
     fontSize: theme.typography.fontSize.base,
-    color: theme.colors.primary[600],
+    color: theme.colors.text.secondary,
+    marginBottom: theme.spacing.xl,
+    textAlign: 'center',
+    lineHeight: theme.typography.lineHeight.relaxed * theme.typography.fontSize.base,
+  },
+  storyPeekButton: {
+    backgroundColor: theme.colors.primary[500],
+    paddingHorizontal: theme.spacing.xl,
+    paddingVertical: theme.spacing.lg,
+    borderRadius: theme.borderRadius.xl,
+    ...theme.shadows.lg,
+    elevation: 8,
+    minWidth: 200,
+  },
+  storyPeekButtonText: {
+    color: theme.colors.text.inverse,
+    fontSize: theme.typography.fontSize.lg,
+    fontWeight: theme.typography.fontWeight.bold as any,
+    textAlign: 'center',
+  },
+  // Imagery Header Styles
+  headerBackground: {
+    height: 280,
+    width: '100%',
+  },
+  headerOverlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+  },
+  headerContent: {
+    flex: 1,
+    paddingHorizontal: theme.spacing.lg,
+    paddingTop: theme.spacing.lg,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
+    paddingTop: theme.spacing.md, // Add padding to avoid status bar overlap
+  },
+  hamburgerButton: {
+    padding: theme.spacing.md,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    ...theme.shadows.sm,
+  },
+  clearButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: 'rgba(220, 38, 38, 0.2)', // Red tint for clear action
+    borderWidth: 1,
+    borderColor: 'rgba(220, 38, 38, 0.3)',
+    gap: theme.spacing.xs,
+    ...theme.shadows.sm,
+  },
+  homeButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: theme.spacing.md,
+    paddingVertical: theme.spacing.sm,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: 'rgba(34, 197, 94, 0.2)', // Green tint for home action
+    borderWidth: 1,
+    borderColor: 'rgba(34, 197, 94, 0.3)',
+    gap: theme.spacing.xs,
+    ...theme.shadows.sm,
+  },
+  clearButtonText: {
+    color: theme.colors.text.inverse,
+    fontSize: theme.typography.fontSize.sm,
+    fontWeight: theme.typography.fontWeight.medium as any,
+  },
+  headerTextContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingBottom: theme.spacing.xl,
+  },
+  headerTitle: {
+    fontSize: theme.typography.fontSize['3xl'],
+    fontWeight: theme.typography.fontWeight.bold as any,
+    color: theme.colors.text.inverse,
+    marginBottom: theme.spacing.sm,
+    textAlign: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 2 },
+    textShadowRadius: 3,
+  },
+  headerSubtitle: {
+    fontSize: theme.typography.fontSize.xl,
+    color: theme.colors.text.inverse,
+    marginBottom: theme.spacing.xs,
+    textAlign: 'center',
+    fontWeight: theme.typography.fontWeight.medium as any,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
+  },
+  headerPreferences: {
+    fontSize: theme.typography.fontSize.base,
+    color: theme.colors.text.inverse,
+    textAlign: 'center',
+    opacity: 0.9,
+    textShadowColor: 'rgba(0, 0, 0, 0.75)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   actionButtonsContainer: {
     paddingHorizontal: theme.spacing.lg,
+    marginTop: -theme.spacing.lg, // Slight overlap with header
     marginBottom: theme.spacing.lg,
     flexDirection: 'row',
     gap: theme.spacing.md,
+    zIndex: 1,
   },
   mapButton: {
     backgroundColor: theme.colors.primary[500],
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     flex: 1,
+    ...theme.shadows.lg,
+    elevation: 8,
   },
   mapButtonText: {
     color: theme.colors.text.inverse,
@@ -504,9 +851,11 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.semantic.success[500],
     paddingVertical: theme.spacing.md,
     paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.md,
+    borderRadius: theme.borderRadius.lg,
     alignItems: 'center',
     flex: 1,
+    ...theme.shadows.lg,
+    elevation: 8,
   },
   saveButtonDisabled: {
     backgroundColor: theme.colors.text.tertiary,
@@ -519,56 +868,70 @@ const styles = StyleSheet.create({
   },
   daysList: {
     paddingHorizontal: theme.spacing.lg,
-    gap: theme.spacing.md,
+    gap: theme.spacing.xl,
   },
-  dayCard: {
-    backgroundColor: theme.colors.background.secondary,
-    borderRadius: theme.borderRadius.lg,
-    ...theme.shadows.sm,
-    overflow: 'hidden',
+  daySection: {
+    marginBottom: theme.spacing.lg,
   },
   dayHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: theme.spacing.lg,
-    backgroundColor: theme.colors.primary[50],
+    paddingVertical: theme.spacing.md,
+    paddingHorizontal: theme.spacing.sm,
+    backgroundColor: theme.colors.primary[500],
+    borderRadius: theme.borderRadius.lg,
+    marginBottom: theme.spacing.md,
+    ...theme.shadows.md,
   },
   dayHeaderLeft: {
     flex: 1,
   },
   dayNumber: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.semibold as any,
-    color: theme.colors.text.primary,
+    fontSize: theme.typography.fontSize.xl,
+    fontWeight: theme.typography.fontWeight.bold as any,
+    color: theme.colors.text.inverse,
   },
   dayDate: {
     fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.secondary,
+    color: theme.colors.text.inverse,
+    opacity: 0.9,
   },
   dayHeaderRight: {
     alignItems: 'flex-end',
   },
   dayDuration: {
     fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.primary[600],
-    fontWeight: theme.typography.fontWeight.medium as any,
+    color: theme.colors.text.inverse,
+    fontWeight: theme.typography.fontWeight.semibold as any,
   },
-  expandIcon: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.tertiary,
-    marginTop: theme.spacing.xs,
+  activitiesCount: {
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.text.inverse,
+    opacity: 0.8,
+    marginTop: 2,
   },
   dayContent: {
-    padding: theme.spacing.lg,
-    gap: theme.spacing.md,
+    gap: theme.spacing.sm,
   },
   activityCard: {
-    backgroundColor: theme.colors.background.primary,
-    padding: theme.spacing.md,
+    backgroundColor: theme.colors.background.secondary,
+    borderRadius: theme.borderRadius.lg,
+    ...theme.shadows.sm,
+    overflow: 'hidden',
+    flexDirection: 'row',
+    marginBottom: theme.spacing.sm,
+  },
+  activityImage: {
+    width: 80,
+    height: 80,
     borderRadius: theme.borderRadius.md,
-    borderLeftWidth: 3,
-    borderLeftColor: theme.colors.primary[400],
+    margin: theme.spacing.sm,
+  },
+  activityContent: {
+    flex: 1,
+    padding: theme.spacing.sm,
+    paddingLeft: 0,
   },
   activityHeader: {
     flexDirection: 'row',
@@ -583,14 +946,22 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: theme.spacing.sm,
   },
+  activityRatingContainer: {
+    backgroundColor: theme.colors.semantic.warning[50],
+    paddingHorizontal: theme.spacing.xs,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.sm,
+  },
   activityRating: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.semantic.warning[600],
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.semantic.warning[700],
+    fontWeight: theme.typography.fontWeight.medium as any,
   },
   activityTime: {
-    fontSize: theme.typography.fontSize.sm,
+    fontSize: theme.typography.fontSize.xs,
     color: theme.colors.primary[600],
     marginBottom: theme.spacing.xs,
+    fontWeight: theme.typography.fontWeight.medium as any,
   },
   activityDescription: {
     fontSize: theme.typography.fontSize.sm,
@@ -600,25 +971,31 @@ const styles = StyleSheet.create({
   },
   activityMeta: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: theme.spacing.sm,
+    marginTop: theme.spacing.xs,
+  },
+  activityDurationContainer: {
+    backgroundColor: theme.colors.primary[50],
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.sm,
   },
   activityDuration: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.tertiary,
+    fontSize: theme.typography.fontSize.xs,
+    color: theme.colors.primary[700],
+    fontWeight: theme.typography.fontWeight.medium as any,
+  },
+  activityTypeContainer: {
+    backgroundColor: theme.colors.text.tertiary + '20',
+    paddingHorizontal: theme.spacing.sm,
+    paddingVertical: 2,
+    borderRadius: theme.borderRadius.sm,
   },
   activityType: {
-    fontSize: theme.typography.fontSize.sm,
-    color: theme.colors.text.tertiary,
-    textTransform: 'capitalize',
-  },
-  tapHint: {
-    marginTop: theme.spacing.sm,
-    alignItems: 'flex-end',
-  },
-  tapHintText: {
     fontSize: theme.typography.fontSize.xs,
-    color: theme.colors.primary[600],
-    fontStyle: 'italic',
+    color: theme.colors.text.secondary,
+    textTransform: 'capitalize',
+    fontWeight: theme.typography.fontWeight.medium as any,
   },
   summary: {
     margin: theme.spacing.lg,

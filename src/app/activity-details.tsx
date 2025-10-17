@@ -24,16 +24,23 @@ const ActivityDetailsScreen = () => {
 
   // Parse the activity data from params
   const activity: ItineraryActivity = {
-    id: params.id as string,
-    name: params.name as string,
-    description: params.description as string,
-    type: params.type as 'attraction' | 'restaurant' | 'hotel' | 'activity',
-    rating: parseFloat(params.rating as string),
-    duration: parseFloat(params.duration as string),
-    timeSlot: params.timeSlot as string,
-    latitude: parseFloat(params.latitude as string),
-    longitude: parseFloat(params.longitude as string),
-    category: JSON.parse(params.category as string),
+    id: params.id as string || 'unknown',
+    name: params.name as string || 'Unknown Activity',
+    description: params.description as string || 'No description available',
+    type: (params.type as 'attraction' | 'restaurant' | 'hotel' | 'activity') || 'activity',
+    rating: parseFloat(params.rating as string) || 0,
+    duration: parseFloat(params.duration as string) || 0,
+    timeSlot: params.timeSlot as string || 'Not specified',
+    latitude: parseFloat(params.latitude as string) || 0,
+    longitude: parseFloat(params.longitude as string) || 0,
+    category: (() => {
+      try {
+        return params.category ? JSON.parse(params.category as string) : [];
+      } catch (error) {
+        console.warn('Failed to parse category:', params.category);
+        return [];
+      }
+    })(),
   };
 
   // Mock photos for demo (in real app, these would come from API)

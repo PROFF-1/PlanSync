@@ -18,6 +18,7 @@ export interface ItineraryActivity {
   duration: number;
   rating: number;
   timeSlot: string;
+  imageUrl?: string;
 }
 
 export interface GeneratedItinerary {
@@ -80,6 +81,7 @@ export class ItineraryGenerator {
           duration: location.duration,
           rating: location.rating,
           timeSlot,
+          imageUrl: location.imageUrl,
         };
       });
       
@@ -119,6 +121,7 @@ export class ItineraryGenerator {
           duration: randomRestaurant.duration,
           rating: randomRestaurant.rating,
           timeSlot: 'Lunch/Dinner (12:00-14:00)',
+          imageUrl: randomRestaurant.imageUrl,
         };
         
         day.activities.push(restaurantActivity);

@@ -39,10 +39,7 @@ const InnerLayout = () => {
         name="index" 
         options={{ 
           headerShown: false,
-          drawerLabel: 'Login',
-          drawerIcon: ({ color, size }: { color: string; size: number }) => (
-            <Ionicons name="log-in-outline" size={size} color={color} />
-          ),
+          drawerItemStyle: { display: 'none' }, // Hide from drawer
         }} 
       />
       <Drawer.Screen 
@@ -79,10 +76,7 @@ const InnerLayout = () => {
         name="activity-details" 
         options={{ 
           headerShown: false,
-          drawerLabel: 'Activity Details',
-          drawerIcon: ({ color, size }: { color: string; size: number }) => (
-            <Ionicons name="information-circle-outline" size={size} color={color} />
-          ),
+          drawerItemStyle: { display: 'none' }, // Hide from drawer
         }} 
       />
     </Drawer>

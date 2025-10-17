@@ -14,12 +14,14 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerActions } from '@react-navigation/native';
+import { useRouter } from 'expo-router';
 import { useItinerary, SavedItinerary } from '../utils/ItineraryContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
 const HistoryScreen = () => {
   const navigation = useNavigation();
+  const router = useRouter();
   const { savedItineraries, loading, refreshItineraries, clearAllItineraries } = useItinerary();
 
   // Debug logging
@@ -111,7 +113,10 @@ const HistoryScreen = () => {
       <Text style={styles.emptySubtitle}>
         Create your first travel plan to see it here
       </Text>
-      <TouchableOpacity style={styles.createButton}>
+      <TouchableOpacity 
+        style={styles.createButton}
+        onPress={() => router.push('/(tabs)/')}
+      >
         <LinearGradient
           colors={['#4ECDC4', '#44A08D']}
           style={styles.createButtonGradient}

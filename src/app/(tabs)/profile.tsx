@@ -7,13 +7,17 @@ import {
   TouchableOpacity,
   Alert,
   Image,
+  Dimensions,
+  ImageBackground,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerActions } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../utils/AuthContext';
+import { useItinerary } from '../../utils/ItineraryContext';
 import { InputField } from '../../components/InputField';
 import { MultiInputField } from '../../components/MultiInputField';
 import { Button } from '../../components/Button';
@@ -22,8 +26,11 @@ import { updateUserProfile, getUserProfile } from '../../utils/firebaseAuth';
 import { updateProfile, updatePassword } from 'firebase/auth';
 import { auth } from '../../utils/firebaseConfig';
 
+const { width: screenWidth } = Dimensions.get('window');
+
 const ProfileScreen = () => {
   const { user, signOut } = useAuth();
+  const { savedItineraries } = useItinerary();
   const navigation = useNavigation();
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState({
@@ -37,6 +44,22 @@ const ProfileScreen = () => {
   const [isEditingName, setIsEditingName] = useState(false);
   const [isEditingInterests, setIsEditingInterests] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
+
+  // Calculate user stats
+  const userStats = {
+    totalTrips: savedItineraries.length,
+    completedTrips: savedItineraries.filter(trip => trip.status === 'completed').length,
+    totalDays: savedItineraries.reduce((sum, trip) => sum + trip.totalDays, 0),
+    favoriteDestination: savedItineraries.length > 0 
+      ? savedItineraries.reduce((acc, curr) => {
+          acc[curr.destination] = (acc[curr.destination] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      : {},
+  };
+
+  const topDestination = Object.entries(userStats.favoriteDestination)
+    .sort(([,a], [,b]) => b - a)[0]?.[0] || 'No trips yet';
 
   // Helper function to get user initials
   const getUserInitials = (name: string): string => {
@@ -210,59 +233,121 @@ const ProfileScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar style="dark" backgroundColor={theme.colors.background.primary} />
+      <StatusBar style="light" backgroundColor="transparent" translucent />
       
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
-              <Ionicons name="menu" size={28} color={theme.colors.primary[500]} />
-            </TouchableOpacity>
-          </View>
-          <View style={styles.profileImageContainer}>
-            {user.photoURL ? (
-              <Image
-                source={{ uri: user.photoURL }}
-                style={styles.profileImage}
-              />
-            ) : (
-              <View style={styles.profileImagePlaceholder}>
-                <Text style={styles.profileImageInitials}>
-                  {getUserInitials(user.displayName || user.email || 'User')}
-                </Text>
+        {/* Hero Header Section */}
+        <ImageBackground
+          source={{ uri: 'https://images.unsplash.com/photo-1469474968028-56623f02e42e?ixlib=rb-4.0.3&auto=format&fit=crop&w=2340&q=80' }}
+          style={styles.heroSection}
+          resizeMode="cover"
+        >
+          <LinearGradient
+            colors={['rgba(0,0,0,0.3)', 'rgba(0,0,0,0.6)']}
+            style={styles.heroGradient}
+          >
+            <View style={styles.topBar}>
+              <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+                <Ionicons name="menu" size={28} color="#FFFFFF" />
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.settingsButton}>
+                <Ionicons name="settings-outline" size={24} color="#FFFFFF" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.profileHeaderContent}>
+              <View style={styles.profileImageContainer}>
+                {user?.photoURL ? (
+                  <Image
+                    source={{ uri: user.photoURL }}
+                    style={styles.profileImage}
+                  />
+                ) : (
+                  <View style={styles.profileImagePlaceholder}>
+                    <Text style={styles.profileImageInitials}>
+                      {getUserInitials(user?.displayName || user?.email || 'User')}
+                    </Text>
+                  </View>
+                )}
+                <TouchableOpacity 
+                  style={styles.editImageButton}
+                  onPress={handleEditProfileImage}
+                >
+                  <Ionicons name="camera" size={16} color="#FFFFFF" />
+                </TouchableOpacity>
               </View>
-            )}
-            <TouchableOpacity 
-              style={styles.editImageButton}
-              onPress={handleEditProfileImage}
-            >
-              <Text style={styles.editImageButtonText}>📷</Text>
-            </TouchableOpacity>
+              
+              <Text style={styles.userName}>{user?.displayName || 'Travel Explorer'}</Text>
+              <Text style={styles.userEmail}>{user?.email}</Text>
+              
+              {/* User Stats Cards */}
+              <View style={styles.statsContainer}>
+                <View style={styles.statCard}>
+                  <Text style={styles.statNumber}>{userStats.totalTrips}</Text>
+                  <Text style={styles.statLabel}>Trips</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statNumber}>{userStats.totalDays}</Text>
+                  <Text style={styles.statLabel}>Days</Text>
+                </View>
+                <View style={styles.statCard}>
+                  <Text style={styles.statNumber}>{userStats.completedTrips}</Text>
+                  <Text style={styles.statLabel}>Completed</Text>
+                </View>
+              </View>
+            </View>
+          </LinearGradient>
+        </ImageBackground>
+
+        {/* Quick Info Card */}
+        <View style={styles.quickInfoCard}>
+          <View style={styles.quickInfoItem}>
+            <Ionicons name="location" size={20} color="#4ECDC4" />
+            <View style={styles.quickInfoText}>
+              <Text style={styles.quickInfoLabel}>Favorite Destination</Text>
+              <Text style={styles.quickInfoValue}>{topDestination}</Text>
+            </View>
           </View>
-          <Text style={styles.userName}>{user.displayName || 'User'}</Text>
-          <Text style={styles.userEmail}>{user.email}</Text>
+          <View style={styles.quickInfoDivider} />
+          <View style={styles.quickInfoItem}>
+            <Ionicons name="calendar" size={20} color="#4ECDC4" />
+            <View style={styles.quickInfoText}>
+              <Text style={styles.quickInfoLabel}>Member Since</Text>
+              <Text style={styles.quickInfoValue}>
+                {user?.metadata?.creationTime ? 
+                  new Date(user.metadata.creationTime).getFullYear() : 
+                  new Date().getFullYear()
+                }
+              </Text>
+            </View>
+          </View>
         </View>
 
         {/* Profile Information Section */}
-        <View style={styles.formSection}>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
+            <Ionicons name="person-outline" size={24} color="#667eea" />
             <Text style={styles.sectionTitle}>Profile Information</Text>
           </View>
 
           {/* Name Field */}
-          <View style={styles.fieldContainer}>
-            <View style={styles.fieldHeader}>
-              <Text style={styles.fieldLabel}>Full Name</Text>
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Full Name</Text>
               <TouchableOpacity
                 onPress={() => setIsEditingName(!isEditingName)}
-                style={styles.editButton}
+                style={[styles.actionButton, isEditingName && styles.actionButtonCancel]}
               >
-                <Text style={styles.editButtonText}>
+                <Ionicons 
+                  name={isEditingName ? "close" : "create-outline"} 
+                  size={16} 
+                  color={isEditingName ? "#ef4444" : "#4ECDC4"} 
+                />
+                <Text style={[styles.actionButtonText, isEditingName && styles.actionButtonCancelText]}>
                   {isEditingName ? 'Cancel' : 'Edit'}
                 </Text>
               </TouchableOpacity>
@@ -272,10 +357,11 @@ const ProfileScreen = () => {
               value={profileData.displayName}
               onChangeText={(text) => setProfileData({ ...profileData, displayName: text })}
               editable={isEditingName}
+              style={!isEditingName && styles.disabledInput}
             />
             {isEditingName && (
               <Button
-                title="Save Name"
+                title="Save Changes"
                 onPress={handleSaveName}
                 loading={loading}
                 style={styles.saveButton}
@@ -283,9 +369,15 @@ const ProfileScreen = () => {
             )}
           </View>
 
-          {/* Email Field (Read-only) */}
-          <View style={styles.fieldContainer}>
-            <Text style={styles.fieldLabel}>Email</Text>
+          {/* Email Field */}
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Email Address</Text>
+              <View style={styles.verifiedBadge}>
+                <Ionicons name="checkmark-circle" size={16} color="#10b981" />
+                <Text style={styles.verifiedText}>Verified</Text>
+              </View>
+            </View>
             <InputField
               label=""
               value={profileData.email}
@@ -295,14 +387,19 @@ const ProfileScreen = () => {
           </View>
 
           {/* Interests Field */}
-          <View style={styles.fieldContainer}>
-            <View style={styles.fieldHeader}>
-              <Text style={styles.fieldLabel}>Travel Interests</Text>
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Travel Interests</Text>
               <TouchableOpacity
                 onPress={() => setIsEditingInterests(!isEditingInterests)}
-                style={styles.editButton}
+                style={[styles.actionButton, isEditingInterests && styles.actionButtonCancel]}
               >
-                <Text style={styles.editButtonText}>
+                <Ionicons 
+                  name={isEditingInterests ? "close" : "create-outline"} 
+                  size={16} 
+                  color={isEditingInterests ? "#ef4444" : "#4ECDC4"} 
+                />
+                <Text style={[styles.actionButtonText, isEditingInterests && styles.actionButtonCancelText]}>
                   {isEditingInterests ? 'Cancel' : 'Edit'}
                 </Text>
               </TouchableOpacity>
@@ -327,28 +424,37 @@ const ProfileScreen = () => {
         </View>
 
         {/* Security Section */}
-        <View style={styles.formSection}>
+        <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Security</Text>
+            <Ionicons name="shield-checkmark-outline" size={24} color="#667eea" />
+            <Text style={styles.sectionTitle}>Security & Privacy</Text>
           </View>
 
-          <View style={styles.fieldContainer}>
-            <View style={styles.fieldHeader}>
-              <Text style={styles.fieldLabel}>Password</Text>
+          <View style={styles.card}>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Password</Text>
               <TouchableOpacity
                 onPress={() => setIsEditingPassword(!isEditingPassword)}
-                style={styles.editButton}
+                style={[styles.actionButton, isEditingPassword && styles.actionButtonCancel]}
               >
-                <Text style={styles.editButtonText}>
+                <Ionicons 
+                  name={isEditingPassword ? "close" : "create-outline"} 
+                  size={16} 
+                  color={isEditingPassword ? "#ef4444" : "#4ECDC4"} 
+                />
+                <Text style={[styles.actionButtonText, isEditingPassword && styles.actionButtonCancelText]}>
                   {isEditingPassword ? 'Cancel' : 'Change'}
                 </Text>
               </TouchableOpacity>
             </View>
             
             {!isEditingPassword ? (
-              <Text style={styles.passwordPlaceholder}>••••••••</Text>
+              <View style={styles.passwordDisplay}>
+                <Text style={styles.passwordPlaceholder}>••••••••••••</Text>
+                <Text style={styles.passwordHint}>Last updated {new Date().toLocaleDateString()}</Text>
+              </View>
             ) : (
-              <>
+              <View style={styles.passwordForm}>
                 <InputField
                   label="New Password"
                   value={profileData.newPassword}
@@ -364,21 +470,56 @@ const ProfileScreen = () => {
                   placeholder="Confirm new password"
                 />
                 <Button
-                  title="Change Password"
+                  title="Update Password"
                   onPress={handleChangePassword}
                   loading={loading}
                   style={styles.saveButton}
                 />
-              </>
+              </View>
             )}
           </View>
         </View>
 
-        {/* Sign Out Button */}
-        <View style={styles.signOutSection}>
-          <TouchableOpacity style={styles.signOutButton} onPress={handleSignOut}>
-            <Text style={styles.signOutButtonText}>Sign Out</Text>
-          </TouchableOpacity>
+        {/* Account Actions */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Ionicons name="settings-outline" size={24} color="#667eea" />
+            <Text style={styles.sectionTitle}>Account</Text>
+          </View>
+
+          <View style={styles.actionsList}>
+            <TouchableOpacity style={styles.actionItem}>
+              <View style={styles.actionItemLeft}>
+                <Ionicons name="notifications-outline" size={20} color="#6b7280" />
+                <Text style={styles.actionItemText}>Notifications</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionItem}>
+              <View style={styles.actionItemLeft}>
+                <Ionicons name="shield-outline" size={20} color="#6b7280" />
+                <Text style={styles.actionItemText}>Privacy Settings</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.actionItem}>
+              <View style={styles.actionItemLeft}>
+                <Ionicons name="help-circle-outline" size={20} color="#6b7280" />
+                <Text style={styles.actionItemText}>Help & Support</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#6b7280" />
+            </TouchableOpacity>
+
+            <TouchableOpacity style={[styles.actionItem, styles.signOutAction]} onPress={handleSignOut}>
+              <View style={styles.actionItemLeft}>
+                <Ionicons name="log-out-outline" size={20} color="#ef4444" />
+                <Text style={[styles.actionItemText, styles.signOutText]}>Sign Out</Text>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#ef4444" />
+            </TouchableOpacity>
+          </View>
         </View>
       </ScrollView>
     </SafeAreaView>
@@ -388,13 +529,13 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: theme.colors.background.primary,
+    backgroundColor: '#F8FAFC',
   },
   scrollView: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 100,
   },
   errorContainer: {
     flex: 1,
@@ -403,147 +544,308 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
   },
   errorText: {
-    fontSize: theme.typography.fontSize.lg,
-    color: theme.colors.text.secondary,
+    fontSize: 18,
+    color: '#6b7280',
     textAlign: 'center',
   },
-  header: {
-    alignItems: 'center',
-    paddingVertical: 30,
+  
+  // Hero Section
+  heroSection: {
+    height: 320,
+    marginBottom: -60,
+  },
+  heroGradient: {
+    flex: 1,
     paddingHorizontal: 20,
-    backgroundColor: theme.colors.background.secondary,
+    paddingTop: 20,
   },
   topBar: {
     flexDirection: 'row',
-    justifyContent: 'flex-start',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 15,
+    marginBottom: 30,
+  },
+  settingsButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  profileHeaderContent: {
+    alignItems: 'center',
+    flex: 1,
+    justifyContent: 'center',
   },
   profileImageContainer: {
     position: 'relative',
-    marginBottom: 15,
+    marginBottom: 20,
   },
   profileImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: theme.colors.neutral[200],
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   profileImagePlaceholder: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: theme.colors.primary[500],
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 4,
+    borderColor: 'rgba(255,255,255,0.3)',
   },
   profileImageInitials: {
-    fontSize: 36,
-    fontWeight: theme.typography.fontWeight.bold as any,
-    color: theme.colors.text.inverse,
+    fontSize: 48,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
   },
   editImageButton: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: theme.colors.primary[500],
+    bottom: 5,
+    right: 5,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#4ECDC4',
     justifyContent: 'center',
     alignItems: 'center',
-  },
-  editImageButtonText: {
-    fontSize: 16,
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
   },
   userName: {
-    fontSize: theme.typography.fontSize.xl,
-    fontWeight: theme.typography.fontWeight.bold as any,
-    color: theme.colors.text.primary,
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
     marginBottom: 5,
+    textAlign: 'center',
   },
   userEmail: {
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.text.secondary,
+    fontSize: 16,
+    color: 'rgba(255,255,255,0.8)',
+    marginBottom: 30,
+    textAlign: 'center',
   },
-  formSection: {
+  
+  // Stats Container
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    width: '100%',
     paddingHorizontal: 20,
-    paddingTop: 20,
+  },
+  statCard: {
+    alignItems: 'center',
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    paddingVertical: 15,
+    paddingHorizontal: 20,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)',
+    minWidth: 80,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    marginBottom: 5,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.8)',
+    textAlign: 'center',
+  },
+
+  // Quick Info Card
+  quickInfoCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 20,
     marginBottom: 20,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderRadius: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 6,
+    zIndex: 10,
+  },
+  quickInfoItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+  },
+  quickInfoText: {
+    marginLeft: 15,
+    flex: 1,
+  },
+  quickInfoLabel: {
+    fontSize: 14,
+    color: '#6b7280',
+    marginBottom: 2,
+  },
+  quickInfoValue: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  quickInfoDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginVertical: 10,
+  },
+
+  // Sections
+  section: {
+    marginHorizontal: 20,
+    marginBottom: 30,
   },
   sectionHeader: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 20,
   },
   sectionTitle: {
-    fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.semibold as any,
-    color: theme.colors.text.primary,
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginLeft: 10,
   },
-  fieldContainer: {
-    marginBottom: 20,
+
+  // Cards
+  card: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 20,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    marginBottom: 15,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  fieldHeader: {
+  cardHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 10,
-  },
-  fieldLabel: {
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.medium as any,
-    color: theme.colors.text.primary,
-  },
-  editButton: {
-    backgroundColor: theme.colors.primary[500],
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: theme.borderRadius.md,
-  },
-  editButtonText: {
-    color: theme.colors.text.inverse,
-    fontSize: theme.typography.fontSize.sm,
-    fontWeight: theme.typography.fontWeight.medium as any,
-  },
-  disabledInput: {
-    opacity: 0.6,
-  },
-  passwordSectionTitle: {
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold as any,
-    color: theme.colors.text.primary,
-    marginTop: 20,
     marginBottom: 15,
   },
-  passwordPlaceholder: {
-    fontSize: theme.typography.fontSize.base,
-    color: theme.colors.text.secondary,
-    paddingVertical: 15,
-    paddingHorizontal: 15,
-    backgroundColor: theme.colors.background.secondary,
-    borderRadius: theme.borderRadius.md,
-    marginBottom: 10,
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1f2937',
+  },
+  
+  // Action Buttons
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#4ECDC4',
+  },
+  actionButtonCancel: {
+    backgroundColor: 'rgba(239, 68, 68, 0.1)',
+    borderColor: '#ef4444',
+  },
+  actionButtonText: {
+    color: '#4ECDC4',
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 5,
+  },
+  actionButtonCancelText: {
+    color: '#ef4444',
+  },
+  
+  // Verified Badge
+  verifiedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  verifiedText: {
+    color: '#10b981',
+    fontSize: 12,
+    fontWeight: '500',
+    marginLeft: 4,
+  },
+
+  // Form Elements
+  disabledInput: {
+    opacity: 0.7,
+    backgroundColor: '#f9fafb',
   },
   saveButton: {
-    marginTop: 20,
+    marginTop: 15,
+    backgroundColor: '#4ECDC4',
   },
-  signOutSection: {
-    paddingHorizontal: 20,
-    paddingTop: 30,
+  
+  // Password Section
+  passwordDisplay: {
+    paddingVertical: 10,
   },
-  signOutButton: {
-    backgroundColor: theme.colors.semantic.error[500],
-    paddingVertical: 15,
-    borderRadius: theme.borderRadius.md,
+  passwordPlaceholder: {
+    fontSize: 16,
+    color: '#6b7280',
+    marginBottom: 5,
+  },
+  passwordHint: {
+    fontSize: 12,
+    color: '#9ca3af',
+  },
+  passwordForm: {
+    marginTop: 10,
+  },
+
+  // Actions List
+  actionsList: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 4,
+    overflow: 'hidden',
+  },
+  actionItem: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 18,
+    paddingHorizontal: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f3f4f6',
   },
-  signOutButtonText: {
-    color: theme.colors.text.inverse,
-    fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold as any,
+  actionItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  actionItemText: {
+    fontSize: 16,
+    color: '#374151',
+    marginLeft: 15,
+    fontWeight: '500',
+  },
+  signOutAction: {
+    borderBottomWidth: 0,
+  },
+  signOutText: {
+    color: '#ef4444',
   },
 });
 

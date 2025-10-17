@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { getUserItineraries, ItineraryFirestore, deleteItinerary } from './firebaseFirestore';
+import { getUserItineraries, ItineraryFirestore, deleteItinerary, ItineraryDayFirestore } from './firebaseFirestore';
 import { useAuth } from './AuthContext';
 
 export interface SavedItinerary {
@@ -15,6 +15,7 @@ export interface SavedItinerary {
   startDate: Date;
   endDate: Date;
   totalDays: number;
+  days?: ItineraryDayFirestore[];
 }
 
 interface ItineraryContextType {
@@ -92,6 +93,7 @@ const convertFirebaseItinerary = (fbItinerary: ItineraryFirestore): SavedItinera
       startDate,
       endDate,
       totalDays: fbItinerary.totalDays || 1,
+      days: fbItinerary.days || [],
     };
   } catch (error) {
     console.error('Error converting Firebase itinerary:', error, fbItinerary);
@@ -109,6 +111,7 @@ const convertFirebaseItinerary = (fbItinerary: ItineraryFirestore): SavedItinera
       startDate: new Date(),
       endDate: new Date(),
       totalDays: 1,
+      days: [],
     };
   }
 };

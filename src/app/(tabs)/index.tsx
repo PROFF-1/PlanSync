@@ -23,6 +23,8 @@ import { PickerField } from '../../components/PickerField';
 import { Button } from '../../components/Button';
 import { destinationOptions, interestCategories, durationOptions } from '../../utils/MockData';
 import { useAuth } from '../../utils/AuthContext';
+import { useItinerary } from '../../utils/ItineraryContext';
+import { ItineraryActivityFirestore } from '../../utils/firebaseFirestore';
 
 interface TravelPreferences {
   destination: string;
@@ -32,6 +34,7 @@ interface TravelPreferences {
 
 const index = () => {
   const { user, userProfile, loading: authLoading, signOut } = useAuth();
+  const { savedItineraries } = useItinerary();
   const navigation = useNavigation();
   const [preferences, setPreferences] = useState<TravelPreferences>({
     destination: '',
@@ -122,6 +125,74 @@ const index = () => {
     }
   };
 
+  // Function to get unique visited places from saved itineraries
+  const getVisitedPlaces = () => {
+    const uniqueLocations = new Set<string>();
+    const visitedPlaces: { destination: string; image: string; rating: number; location: string }[] = [];
+
+    savedItineraries.forEach(itinerary => {
+      // Extract activities from all days in the itinerary
+      itinerary.days?.forEach(day => {
+        day.activities?.forEach((activity: ItineraryActivityFirestore) => {
+          // Use activity name as the unique identifier
+          if (!uniqueLocations.has(activity.name)) {
+            uniqueLocations.add(activity.name);
+            
+            // Default images based on activity type and category
+            const getActivityImage = (activity: ItineraryActivityFirestore): string => {
+              const activityImages: { [key: string]: string } = {
+                // Attractions
+                'attraction': 'https://images.unsplash.com/photo-1513635269975-59663e0ac1ad?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                'museum': 'https://images.unsplash.com/photo-1518998053901-5348d3961a04?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                'park': 'https://images.unsplash.com/photo-1441974231531-c6227db76b6e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                'historical': 'https://images.unsplash.com/photo-1552832230-c0197dd311b5?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                'beach': 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                'temple': 'https://images.unsplash.com/photo-1580971139398-dc3b2a8554d4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                'restaurant': 'https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                'shopping': 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                'nature': 'https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+                'nightlife': 'https://images.unsplash.com/photo-1514306191717-452ec28c7814?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80',
+              };
+
+              // Try to match by activity type first
+              if (activityImages[activity.type]) {
+                return activityImages[activity.type];
+              }
+
+              // Try to match by category
+              const category = activity.category?.[0]?.toLowerCase() || '';
+              if (activityImages[category]) {
+                return activityImages[category];
+              }
+
+              // Default fallback based on activity name keywords
+              const name = activity.name.toLowerCase();
+              if (name.includes('museum')) return activityImages['museum'];
+              if (name.includes('park') || name.includes('garden')) return activityImages['park'];
+              if (name.includes('beach')) return activityImages['beach'];
+              if (name.includes('temple') || name.includes('church') || name.includes('cathedral')) return activityImages['temple'];
+              if (name.includes('restaurant') || name.includes('cafe') || name.includes('food')) return activityImages['restaurant'];
+              if (name.includes('market') || name.includes('shop')) return activityImages['shopping'];
+              if (name.includes('tower') || name.includes('palace') || name.includes('castle')) return activityImages['historical'];
+
+              // Default image
+              return 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80';
+            };
+
+            visitedPlaces.push({
+              destination: activity.name,
+              image: getActivityImage(activity),
+              rating: activity.rating || (4.0 + Math.random() * 1.0), // Use actual rating or generate between 4.0-5.0
+              location: itinerary.destination, // Show which city/destination this activity is in
+            });
+          }
+        });
+      });
+    });
+
+    return visitedPlaces;
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="light-content" backgroundColor="transparent" translucent />
@@ -192,7 +263,7 @@ const index = () => {
         {/* Places for You */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Places for You</Text>
+            <Text style={styles.sectionTitle}>Locations You've Visited</Text>
             <TouchableOpacity>
               <Text style={styles.seeAllButton}>View All</Text>
             </TouchableOpacity>
@@ -203,24 +274,23 @@ const index = () => {
             showsHorizontalScrollIndicator={false}
             contentContainerStyle={styles.placesContainer}
           >
-            <PlaceCard 
-              image="https://images.unsplash.com/photo-1506905925346-21bda4d32df4?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-              title="Santorini"
-              rating={4.8}
-              location="Greece"
-            />
-            <PlaceCard 
-              image="https://images.unsplash.com/photo-1544620347-c4fd4a3d5957?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-              title="Bali"
-              rating={4.9}
-              location="Indonesia"
-            />
-            <PlaceCard 
-              image="https://images.unsplash.com/photo-1488646953014-85cb44e25828?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80"
-              title="Tokyo"
-              rating={4.7}
-              location="Japan"
-            />
+            {getVisitedPlaces().length > 0 ? (
+              getVisitedPlaces().map((place, index) => (
+                <PlaceCard 
+                  key={index}
+                  image={place.image}
+                  title={place.destination}
+                  rating={Number(place.rating.toFixed(1))}
+                  location={place.location}
+                />
+              ))
+            ) : (
+              <View style={styles.emptyPlacesContainer}>
+                <Ionicons name="location-outline" size={60} color="#ccc" />
+                <Text style={styles.emptyPlacesText}>No locations visited yet</Text>
+                <Text style={styles.emptyPlacesSubtext}>Start planning trips to see your visited attractions and places here!</Text>
+              </View>
+            )}
           </ScrollView>
         </View>
 
@@ -262,17 +332,6 @@ const index = () => {
               disabled={loading}
               style={styles.generateButton}
             />
-          </View>
-        </View>
-
-        {/* Transport Options */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Transport</Text>
-          <View style={styles.transportGrid}>
-            <TransportOption icon="✈️" label="Plane" />
-            <TransportOption icon="🚢" label="Cruise" />
-            <TransportOption icon="🚂" label="Train" />
-            <TransportOption icon="🚌" label="Bus" />
           </View>
         </View>
 
@@ -343,11 +402,6 @@ const PlaceCard: React.FC<PlaceCardProps> = ({ image, title, rating, location })
   </TouchableOpacity>
 );
 
-interface TransportOptionProps {
-  icon: string;
-  label: string;
-}
-
 interface FeatureItemProps {
   icon: string;
   title: string;
@@ -362,13 +416,6 @@ const FeatureItem: React.FC<FeatureItemProps> = ({ icon, title, description }) =
       <Text style={styles.featureDescription}>{description}</Text>
     </View>
   </View>
-);
-
-const TransportOption: React.FC<TransportOptionProps> = ({ icon, label }) => (
-  <TouchableOpacity style={styles.transportOption}>
-    <Text style={styles.transportIcon}>{icon}</Text>
-    <Text style={styles.transportLabel}>{label}</Text>
-  </TouchableOpacity>
 );
 
 export default index;
@@ -531,6 +578,28 @@ const styles = StyleSheet.create({
     paddingLeft: 0,
     gap: 15,
   },
+  emptyPlacesContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 40,
+    paddingHorizontal: 20,
+    minWidth: screenWidth - 40,
+  },
+  emptyPlacesText: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#666',
+    marginTop: 15,
+    textAlign: 'center',
+  },
+  emptyPlacesSubtext: {
+    fontSize: 14,
+    color: '#999',
+    marginTop: 8,
+    textAlign: 'center',
+    lineHeight: 20,
+  },
   placeCard: {
     width: 180,
     height: 220,
@@ -577,35 +646,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#FFFFFF',
     fontWeight: '600',
-  },
-  
-  // Transport Grid
-  transportGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginTop: 15,
-  },
-  transportOption: {
-    width: (screenWidth - 80) / 4,
-    aspectRatio: 1,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
-  },
-  transportIcon: {
-    fontSize: 28,
-    marginBottom: 8,
-  },
-  transportLabel: {
-    fontSize: 12,
-    color: '#64748B',
-    fontWeight: '500',
   },
   
   // Button Styles

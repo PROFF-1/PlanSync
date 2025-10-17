@@ -9,6 +9,7 @@ export interface Location {
   description: string;
   rating: number;
   duration: number; // in hours
+  imageUrl?: string;
 }
 
 export interface Destination {
@@ -38,6 +39,7 @@ export const destinations: Destination[] = [
         description: 'Memorial park and mausoleum of Ghana\'s first president',
         rating: 4.5,
         duration: 2,
+        imageUrl: 'https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
       },
       {
         id: 'independence-square',
@@ -48,6 +50,7 @@ export const destinations: Destination[] = [
         category: ['History', 'Culture'],
         description: 'Historic square commemorating Ghana\'s independence',
         rating: 4.2,
+        imageUrl: 'https://images.unsplash.com/photo-1578662996442-48f60103fc96?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
         duration: 1,
       },
       {
