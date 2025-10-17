@@ -85,8 +85,7 @@ export const getUserItineraries = async (userId: string): Promise<ItineraryFires
   try {
     const q = query(
       collection(firestore, 'itineraries'),
-      where('userId', '==', userId),
-      orderBy('createdAt', 'desc')
+      where('userId', '==', userId)
     );
     
     const querySnapshot = await getDocs(q);

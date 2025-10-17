@@ -10,6 +10,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
+import { useNavigation } from '@react-navigation/native';
+import { DrawerActions } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../utils/AuthContext';
 import { InputField } from '../../components/InputField';
 import { MultiInputField } from '../../components/MultiInputField';
@@ -21,6 +24,7 @@ import { auth } from '../../utils/firebaseConfig';
 
 const ProfileScreen = () => {
   const { user, signOut } = useAuth();
+  const navigation = useNavigation();
   const [loading, setLoading] = useState(false);
   const [profileData, setProfileData] = useState({
     displayName: '',
@@ -215,6 +219,11 @@ const ProfileScreen = () => {
       >
         {/* Header */}
         <View style={styles.header}>
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+              <Ionicons name="menu" size={28} color={theme.colors.primary[500]} />
+            </TouchableOpacity>
+          </View>
           <View style={styles.profileImageContainer}>
             {user.photoURL ? (
               <Image
@@ -403,6 +412,13 @@ const styles = StyleSheet.create({
     paddingVertical: 30,
     paddingHorizontal: 20,
     backgroundColor: theme.colors.background.secondary,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
   },
   profileImageContainer: {
     position: 'relative',

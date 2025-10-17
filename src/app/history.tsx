@@ -7,74 +7,61 @@ import {
   TouchableOpacity,
   Image,
   Dimensions,
-  SafeAreaView,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { DrawerActions } from '@react-navigation/native';
+import { useItinerary, SavedItinerary } from '../utils/ItineraryContext';
 
 const { width: screenWidth } = Dimensions.get('window');
 
-interface SavedItinerary {
-  id: string;
-  destination: string;
-  duration: string;
-  interests: string[];
-  createdAt: Date;
-  imageUrl: string;
-  activities: number;
-  status: 'upcoming' | 'completed' | 'cancelled';
-}
-
 const HistoryScreen = () => {
-  const [savedItineraries, setSavedItineraries] = useState<SavedItinerary[]>([
-    {
-      id: '1',
-      destination: 'Paris, France',
-      duration: '5 days',
-      interests: ['Culture', 'Food', 'History'],
-      createdAt: new Date('2024-03-15'),
-      imageUrl: 'https://images.unsplash.com/photo-1502602898536-47ad22581b52?w=500',
-      activities: 12,
-      status: 'completed',
-    },
-    {
-      id: '2',
-      destination: 'Tokyo, Japan',
-      duration: '7 days',
-      interests: ['Culture', 'Food', 'Shopping'],
-      createdAt: new Date('2024-02-10'),
-      imageUrl: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=500',
-      activities: 18,
-      status: 'upcoming',
-    },
-    {
-      id: '3',
-      destination: 'New York, USA',
-      duration: '4 days',
-      interests: ['City Life', 'Shopping', 'Entertainment'],
-      createdAt: new Date('2024-01-20'),
-      imageUrl: 'https://images.unsplash.com/photo-1496442226666-8d4d0e62e6e9?w=500',
-      activities: 10,
-      status: 'completed',
-    },
-  ]);
+  const navigation = useNavigation();
+  const { savedItineraries, loading, refreshItineraries, clearAllItineraries } = useItinerary();
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'completed': return '#10B981';
-      case 'upcoming': return '#3B82F6';
-      case 'cancelled': return '#EF4444';
-      default: return '#6B7280';
+  // Debug logging
+  console.log('History screen - savedItineraries:', savedItineraries.length);
+  console.log('History screen - loading:', loading);
+
+  const handleRefresh = async () => {
+    try {
+      await refreshItineraries();
+    } catch (error) {
+      console.error('Error refreshing itineraries:', error);
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'completed': return 'checkmark-circle';
-      case 'upcoming': return 'time-outline';
-      case 'cancelled': return 'close-circle';
-      default: return 'help-circle';
+  const handleClearHistory = () => {
+    if (savedItineraries.length === 0) {
+      Alert.alert('No History', 'There are no itineraries to clear.');
+      return;
     }
+
+    Alert.alert(
+      'Clear History',
+      'Are you sure you want to delete all your saved itineraries? This action cannot be undone.',
+      [
+        {
+          text: 'Cancel',
+          style: 'cancel',
+        },
+        {
+          text: 'Clear All',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await clearAllItineraries();
+              Alert.alert('Success', 'All itineraries have been cleared.');
+            } catch (error) {
+              Alert.alert('Error', 'Failed to clear itineraries. Please try again.');
+            }
+          },
+        },
+      ]
+    );
   };
 
   const renderItinerary = ({ item }: { item: SavedItinerary }) => (
@@ -84,18 +71,7 @@ const HistoryScreen = () => {
         <LinearGradient
           colors={['transparent', 'rgba(0,0,0,0.6)']}
           style={styles.cardImageOverlay}
-        >
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(item.status) }]}>
-            <Ionicons 
-              name={getStatusIcon(item.status) as any} 
-              size={14} 
-              color="white" 
-            />
-            <Text style={styles.statusText}>
-              {item.status.charAt(0).toUpperCase() + item.status.slice(1)}
-            </Text>
-          </View>
-        </LinearGradient>
+        />
       </View>
 
       <View style={styles.cardContent}>
@@ -103,7 +79,7 @@ const HistoryScreen = () => {
         <Text style={styles.durationText}>{item.duration}</Text>
         
         <View style={styles.interestsContainer}>
-          {item.interests.slice(0, 2).map((interest, index) => (
+          {item.interests.slice(0, 2).map((interest: string, index: number) => (
             <View key={index} style={styles.interestTag}>
               <Text style={styles.interestText}>{interest}</Text>
             </View>
@@ -152,30 +128,35 @@ const HistoryScreen = () => {
         colors={['#667eea', '#764ba2']}
         style={styles.header}
       >
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+            <Ionicons name="menu" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity onPress={handleRefresh} style={styles.actionButton}>
+              <Ionicons name="refresh-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={handleClearHistory} style={styles.actionButton}>
+              <Ionicons name="trash-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
+        </View>
         <Text style={styles.headerTitle}>Travel History</Text>
         <Text style={styles.headerSubtitle}>Your saved itineraries</Text>
       </LinearGradient>
 
       <View style={styles.statsContainer}>
-        <View style={styles.statBox}>
+        <View style={styles.totalTripsBox}>
           <Text style={styles.statNumber}>{savedItineraries.length}</Text>
           <Text style={styles.statLabel}>Total Trips</Text>
         </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>
-            {savedItineraries.filter(i => i.status === 'completed').length}
-          </Text>
-          <Text style={styles.statLabel}>Completed</Text>
-        </View>
-        <View style={styles.statBox}>
-          <Text style={styles.statNumber}>
-            {savedItineraries.filter(i => i.status === 'upcoming').length}
-          </Text>
-          <Text style={styles.statLabel}>Upcoming</Text>
-        </View>
       </View>
 
-      {savedItineraries.length === 0 ? (
+      {loading ? (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Loading itineraries...</Text>
+        </View>
+      ) : savedItineraries.length === 0 ? (
         renderEmptyState()
       ) : (
         <FlatList
@@ -202,6 +183,20 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
   },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  actionButton: {
+    marginLeft: 15,
+    padding: 5,
+  },
   headerTitle: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -215,18 +210,15 @@ const styles = StyleSheet.create({
     marginTop: 5,
   },
   statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     marginHorizontal: 20,
     marginVertical: 20,
   },
-  statBox: {
+  totalTripsBox: {
     backgroundColor: 'white',
     borderRadius: 15,
-    padding: 20,
+    padding: 25,
     alignItems: 'center',
-    flex: 1,
-    marginHorizontal: 5,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -234,12 +226,12 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   statNumber: {
-    fontSize: 24,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#4ECDC4',
   },
   statLabel: {
-    fontSize: 14,
+    fontSize: 16,
     color: '#64748B',
     marginTop: 5,
   },
@@ -275,19 +267,6 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
     alignItems: 'flex-end',
     padding: 15,
-  },
-  statusBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 15,
-  },
-  statusText: {
-    color: 'white',
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 5,
   },
   cardContent: {
     padding: 20,
@@ -386,6 +365,16 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 16,
     fontWeight: '600',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 50,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#64748B',
   },
 });
 

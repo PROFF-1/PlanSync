@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { PreMountProvider } from '../utils/PreMountContext';
 import { AuthProvider } from '../utils/AuthContext';
+import { ItineraryProvider } from '../utils/ItineraryContext';
 import { SplashProvider, useSplash } from '../utils/SplashContext';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../utils/Theme';
@@ -106,13 +107,15 @@ const Layout = () => {
   return (
     <SafeAreaProvider>
       <AuthProvider>
-        <PreMountProvider>
-          <SplashProvider>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <InnerLayout />
-            </GestureHandlerRootView>
-          </SplashProvider>
-        </PreMountProvider>
+        <ItineraryProvider>
+          <PreMountProvider>
+            <SplashProvider>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <InnerLayout />
+              </GestureHandlerRootView>
+            </SplashProvider>
+          </PreMountProvider>
+        </ItineraryProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

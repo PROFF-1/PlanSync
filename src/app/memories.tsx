@@ -8,12 +8,14 @@ import {
   Image,
   Alert,
   Dimensions,
-  SafeAreaView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { LinearGradient } from 'expo-linear-gradient';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
+import { DrawerActions } from '@react-navigation/native';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -29,6 +31,7 @@ interface Memory {
 }
 
 const MemoriesScreen = () => {
+  const navigation = useNavigation();
   const [memories, setMemories] = useState<Memory[]>([]);
   const [permissionStatus, setPermissionStatus] = useState<string>('');
 
@@ -155,6 +158,11 @@ const MemoriesScreen = () => {
         colors={['#667eea', '#764ba2']}
         style={styles.header}
       >
+        <View style={styles.topBar}>
+          <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+            <Ionicons name="menu" size={28} color="#FFFFFF" />
+          </TouchableOpacity>
+        </View>
         <Text style={styles.headerTitle}>Travel Memories</Text>
         <Text style={styles.headerSubtitle}>Capture your journey moments</Text>
       </LinearGradient>
@@ -201,6 +209,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderBottomLeftRadius: 25,
     borderBottomRightRadius: 25,
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginBottom: 20,
   },
   headerTitle: {
     fontSize: 28,

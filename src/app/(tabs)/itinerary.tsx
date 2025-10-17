@@ -10,16 +10,22 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { DrawerActions } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../utils/Theme';
 import { itineraryGenerator, GeneratedItinerary, ItineraryDay, ItineraryActivity } from '../../utils/ItineraryGenerator';
 import { usePreMount } from '../../utils/PreMountContext';
 import PreMountableActivityDetails from '../../components/PreMountableActivityDetails';
 import { useAuth } from '../../utils/AuthContext';
+import { useItinerary } from '../../utils/ItineraryContext';
 import { saveItinerary, ItineraryFirestore } from '../../utils/firebaseFirestore';
 
 const ItineraryTab = () => {
   const params = useLocalSearchParams();
+  const navigation = useNavigation();
   const { user } = useAuth();
+  const { refreshItineraries } = useItinerary();
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
   const [loading, setLoading] = useState(true);
   const [expandedDay, setExpandedDay] = useState<number | null>(null);
@@ -74,6 +80,10 @@ const ItineraryTab = () => {
       };
       
       const itineraryId = await saveItinerary(itineraryData);
+      
+      // Refresh the itineraries context to update the history screen
+      await refreshItineraries();
+      
       Alert.alert('Success', 'Your itinerary has been saved!');
     } catch (error) {
       console.error('Error saving itinerary:', error);
@@ -121,11 +131,6 @@ const ItineraryTab = () => {
         setItinerary(generated);
         // Pre-mount all activity details as soon as itinerary is generated
         preMountAllActivities(generated);
-        
-        // Auto-save to Firebase if user is logged in
-        if (user) {
-          await saveItineraryToFirebase(generated);
-        }
       } else {
         Alert.alert('Error', 'Failed to generate itinerary. Please try again.');
       }
@@ -222,6 +227,11 @@ const ItineraryTab = () => {
       >
         {/* Header */}
         <View style={styles.header}>
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+              <Ionicons name="menu" size={28} color={theme.colors.primary[500]} />
+            </TouchableOpacity>
+          </View>
           <Text style={styles.title}>Your Itinerary</Text>
           <Text style={styles.subtitle}>
             {itinerary.totalDays} days in {itinerary.destination.name}
@@ -448,6 +458,13 @@ const styles = StyleSheet.create({
     paddingTop: theme.spacing.lg,
     paddingBottom: theme.spacing.md,
     alignItems: 'center',
+  },
+  topBar: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 15,
   },
   title: {
     fontSize: theme.typography.fontSize['2xl'],

@@ -13,6 +13,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, router } from 'expo-router';
+import { useNavigation } from '@react-navigation/native';
+import { DrawerActions } from '@react-navigation/native';
+import { Ionicons } from '@expo/vector-icons';
 import { WebView } from 'react-native-webview';
 import * as Location from 'expo-location';
 import { theme } from '../../utils/Theme';
@@ -20,6 +23,7 @@ import { itineraryGenerator, GeneratedItinerary, ItineraryActivity } from '../..
 
 const MapTab = () => {
   const params = useLocalSearchParams();
+  const navigation = useNavigation();
   const [itinerary, setItinerary] = useState<GeneratedItinerary | null>(null);
   const [loading, setLoading] = useState(true);
   const [selectedActivity, setSelectedActivity] = useState<ItineraryActivity | null>(null);
@@ -588,11 +592,8 @@ const MapTab = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <TouchableOpacity 
-          style={styles.backButton} 
-          onPress={() => router.canGoBack() ? router.back() : router.push('/(tabs)/')}
-        >
-          <Text style={styles.backButtonText}>← Back</Text>
+        <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+          <Ionicons name="menu" size={28} color={theme.colors.primary[500]} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Locations</Text>
         <TouchableOpacity 
