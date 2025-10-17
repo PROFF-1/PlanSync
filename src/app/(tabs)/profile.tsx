@@ -19,7 +19,6 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../utils/AuthContext';
 import { useItinerary } from '../../utils/ItineraryContext';
 import { InputField } from '../../components/InputField';
-import { MultiInputField } from '../../components/MultiInputField';
 import { Button } from '../../components/Button';
 import { theme } from '../../utils/Theme';
 import { updateUserProfile, getUserProfile } from '../../utils/firebaseAuth';
@@ -40,9 +39,7 @@ const ProfileScreen = () => {
     newPassword: '',
     confirmPassword: '',
   });
-  const [interests, setInterests] = useState<string[]>([]);
   const [isEditingName, setIsEditingName] = useState(false);
-  const [isEditingInterests, setIsEditingInterests] = useState(false);
   const [isEditingPassword, setIsEditingPassword] = useState(false);
 
   // Calculate user stats
@@ -116,31 +113,6 @@ const ProfileScreen = () => {
     }
   };
 
-  // Handle saving interests
-  const handleSaveInterests = async () => {
-    if (!user) return;
-
-    setLoading(true);
-    try {
-      // Update user profile in Firestore
-      await updateUserProfile(user.uid, {
-        preferences: {
-          interests: interests,
-          preferredDestinations: [],
-          budgetRange: 'medium',
-        },
-      });
-
-      Alert.alert('Success', 'Interests updated successfully!');
-      setIsEditingInterests(false);
-    } catch (error: any) {
-      console.error('Interests update error:', error);
-      Alert.alert('Error', error.message || 'Failed to update interests');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   // Handle password change
   const handleChangePassword = async () => {
     if (!user) return;
@@ -186,12 +158,6 @@ const ProfileScreen = () => {
           newPassword: '',
           confirmPassword: '',
         });
-
-        // Load additional profile data from Firestore
-        const userProfile = await getUserProfile(user.uid);
-        if (userProfile?.preferences?.interests) {
-          setInterests(userProfile.preferences.interests);
-        }
       }
     };
 
@@ -384,42 +350,6 @@ const ProfileScreen = () => {
               editable={false}
               style={styles.disabledInput}
             />
-          </View>
-
-          {/* Interests Field */}
-          <View style={styles.card}>
-            <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Travel Interests</Text>
-              <TouchableOpacity
-                onPress={() => setIsEditingInterests(!isEditingInterests)}
-                style={[styles.actionButton, isEditingInterests && styles.actionButtonCancel]}
-              >
-                <Ionicons 
-                  name={isEditingInterests ? "close" : "create-outline"} 
-                  size={16} 
-                  color={isEditingInterests ? "#ef4444" : "#4ECDC4"} 
-                />
-                <Text style={[styles.actionButtonText, isEditingInterests && styles.actionButtonCancelText]}>
-                  {isEditingInterests ? 'Cancel' : 'Edit'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-            <MultiInputField
-              label=""
-              values={interests}
-              onValuesChange={setInterests}
-              placeholder={isEditingInterests ? "Add your travel interests..." : "No interests added yet"}
-              maxItems={10}
-              editable={isEditingInterests}
-            />
-            {isEditingInterests && (
-              <Button
-                title="Save Interests"
-                onPress={handleSaveInterests}
-                loading={loading}
-                style={styles.saveButton}
-              />
-            )}
           </View>
         </View>
 

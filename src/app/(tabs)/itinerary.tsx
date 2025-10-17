@@ -117,18 +117,26 @@ const ItineraryTab = () => {
     }
   };
 
-  useEffect(() => {
-    // Skip regeneration if the itinerary was manually cleared
-    if (isManuallyCleared) {
-      return;
-    }
+  const handleRegenerateItinerary = () => {
+    // Force regeneration regardless of manual clear state
+    setIsManuallyCleared(false);
+    generateItinerary();
+  };
 
+  useEffect(() => {
     // Create a stable key from params to avoid unnecessary regenerations
     const currentParamsKey = `${params.destination}-${params.interests}-${params.duration}`;
+    
+    // Skip if manually cleared and params haven't changed
+    if (isManuallyCleared && currentParamsKey === lastParams) {
+      return;
+    }
     
     // Only regenerate if the actual values have changed, not just the object reference
     if (currentParamsKey !== lastParams && params.destination && params.duration) {
       setLastParams(currentParamsKey);
+      // Reset manual clear flag when we have new valid params to generate
+      setIsManuallyCleared(false);
       generateItinerary();
     } else if (!params.destination || !params.duration) {
       // Handle case where no valid params are provided
@@ -140,8 +148,6 @@ const ItineraryTab = () => {
   const generateItinerary = async () => {
     try {
       setLoading(true);
-      // Reset manual clear flag when generating new itinerary
-      setIsManuallyCleared(false);
       
       // Check if we have valid parameters
       if (!params.destination || !params.duration) {
@@ -219,9 +225,9 @@ const ItineraryTab = () => {
           onPress: () => {
             // Set flag to prevent automatic regeneration
             setIsManuallyCleared(true);
-            // Clear itinerary state and params to show no itinerary view
+            // Clear itinerary state to show no itinerary view
             setItinerary(null);
-            setLastParams('');
+            // Don't reset lastParams - this was causing regeneration
             // Note: We stay on the same screen, it will show the no itinerary view
           }
         }
@@ -347,27 +353,49 @@ const ItineraryTab = () => {
               </Text>
               
               <Text style={styles.storyPeekDescription}>
-                {isManuallyCleared || !params.destination || !params.duration
+                {isManuallyCleared && params.destination && params.duration
+                  ? `Want to regenerate your itinerary for ${params.destination}? Or create a completely new trip?`
+                  : isManuallyCleared || !params.destination || !params.duration
                   ? 'Ready to plan your next adventure? Head home to create a personalized travel itinerary with amazing destinations, activities, and experiences tailored just for you!'
                   : 'Something went wrong while generating your itinerary. Please try again or return home to create a new one.'
                 }
               </Text>
 
-              {/* Action Button */}
-              <TouchableOpacity 
-                style={styles.storyPeekButton}
-                onPress={() => {
-                  if (isManuallyCleared || !params.destination || !params.duration) {
-                    router.push('/(tabs)/');
-                  } else {
-                    generateItinerary();
-                  }
-                }}
-              >
-                <Text style={styles.storyPeekButtonText}>
-                  {isManuallyCleared || !params.destination || !params.duration ? '🏠 Go to Home' : '🔄 Try Again'}
-                </Text>
-              </TouchableOpacity>
+              {/* Action Buttons */}
+              {isManuallyCleared && params.destination && params.duration ? (
+                <View style={styles.actionButtonsContainer}>
+                  <TouchableOpacity 
+                    style={styles.mapButton}
+                    onPress={handleRegenerateItinerary}
+                  >
+                    <Ionicons name="refresh-outline" size={20} color={theme.colors.primary[600]} />
+                    <Text style={styles.mapButtonText}>Regenerate</Text>
+                  </TouchableOpacity>
+                  
+                  <TouchableOpacity 
+                    style={styles.saveButton}
+                    onPress={() => router.push('/(tabs)/')}
+                  >
+                    <Ionicons name="home-outline" size={20} color="#FFFFFF" />
+                    <Text style={styles.saveButtonText}>New Trip</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <TouchableOpacity 
+                  style={styles.storyPeekButton}
+                  onPress={() => {
+                    if (isManuallyCleared || !params.destination || !params.duration) {
+                      router.push('/(tabs)/');
+                    } else {
+                      handleRegenerateItinerary();
+                    }
+                  }}
+                >
+                  <Text style={styles.storyPeekButtonText}>
+                    {isManuallyCleared || !params.destination || !params.duration ? '🏠 Go to Home' : '🔄 Try Again'}
+                  </Text>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
         </ScrollView>
@@ -429,7 +457,8 @@ const ItineraryTab = () => {
         {/* Action Buttons */}
         <View style={styles.actionButtonsContainer}>
           <TouchableOpacity style={styles.mapButton} onPress={handleViewOnMap}>
-            <Text style={styles.mapButtonText}>🗺️ View on Map</Text>
+            <Ionicons name="map-outline" size={20} color="#001ac1ff" />
+            <Text style={styles.mapButtonText}>View on Map</Text>
           </TouchableOpacity>
           
           {user && (
@@ -438,8 +467,13 @@ const ItineraryTab = () => {
               onPress={() => saveItineraryToFirebase(itinerary)}
               disabled={saving}
             >
+              <Ionicons 
+                name={saving ? "hourglass-outline" : "bookmark-outline"} 
+                size={20} 
+                color="#FFFFFF" 
+              />
               <Text style={styles.saveButtonText}>
-                {saving ? '💾 Saving...' : '💾 Save Trip'}
+                {saving ? 'Saving...' : 'Save Trip'}
               </Text>
             </TouchableOpacity>
           )}
@@ -671,16 +705,14 @@ const styles = StyleSheet.create({
   },
   emptyStateButton: {
     backgroundColor: theme.colors.primary[500],
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.lg,
-    borderRadius: theme.borderRadius.xl,
-    ...theme.shadows.lg,
-    elevation: 8,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 25,
   },
   emptyStateButtonText: {
     color: theme.colors.text.inverse,
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold as any,
+    fontWeight: '600' as any,
     textAlign: 'center',
   },
   // Story Peek Styles (for no itinerary state)
@@ -692,8 +724,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.xl,
     padding: theme.spacing.xl,
     alignItems: 'center',
-    ...theme.shadows.lg,
-    elevation: 8,
   },
   storyPeekIconContainer: {
     marginBottom: theme.spacing.lg,
@@ -717,17 +747,15 @@ const styles = StyleSheet.create({
   },
   storyPeekButton: {
     backgroundColor: theme.colors.primary[500],
-    paddingHorizontal: theme.spacing.xl,
-    paddingVertical: theme.spacing.lg,
-    borderRadius: theme.borderRadius.xl,
-    ...theme.shadows.lg,
-    elevation: 8,
+    paddingHorizontal: 32,
+    paddingVertical: 16,
+    borderRadius: 25,
     minWidth: 200,
   },
   storyPeekButtonText: {
     color: theme.colors.text.inverse,
     fontSize: theme.typography.fontSize.lg,
-    fontWeight: theme.typography.fontWeight.bold as any,
+    fontWeight: '600' as any,
     textAlign: 'center',
   },
   // Imagery Header Styles
@@ -750,39 +778,33 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     marginBottom: 15,
-    paddingTop: theme.spacing.md, // Add padding to avoid status bar overlap
+    paddingTop: theme.spacing.xl, // Add padding to avoid status bar overlap
   },
   hamburgerButton: {
-    padding: theme.spacing.md,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: 'rgba(255, 255, 255, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.2)',
-    ...theme.shadows.sm,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   clearButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: 'rgba(220, 38, 38, 0.2)', // Red tint for clear action
-    borderWidth: 1,
-    borderColor: 'rgba(220, 38, 38, 0.3)',
-    gap: theme.spacing.xs,
-    ...theme.shadows.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(220, 38, 38, 0.2)',
+    gap: 6,
   },
   homeButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: theme.spacing.md,
-    paddingVertical: theme.spacing.sm,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: 'rgba(34, 197, 94, 0.2)', // Green tint for home action
-    borderWidth: 1,
-    borderColor: 'rgba(34, 197, 94, 0.3)',
-    gap: theme.spacing.xs,
-    ...theme.shadows.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: 'rgba(34, 197, 94, 0.2)',
+    gap: 6,
   },
   clearButtonText: {
     color: theme.colors.text.inverse,
@@ -833,38 +855,58 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   mapButton: {
-    backgroundColor: theme.colors.primary[500],
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 25,
     flex: 1,
-    ...theme.shadows.lg,
-    elevation: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    gap: 8,
   },
   mapButtonText: {
-    color: theme.colors.text.inverse,
+    color: theme.colors.primary[600],
     fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold as any,
+    fontWeight: '600' as any,
   },
   saveButton: {
-    backgroundColor: theme.colors.semantic.success[500],
-    paddingVertical: theme.spacing.md,
-    paddingHorizontal: theme.spacing.lg,
-    borderRadius: theme.borderRadius.lg,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: theme.colors.primary[500],
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 25,
     flex: 1,
-    ...theme.shadows.lg,
-    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
+    gap: 8,
   },
   saveButtonDisabled: {
-    backgroundColor: theme.colors.text.tertiary,
-    opacity: 0.7,
+    backgroundColor: 'rgba(156, 163, 175, 0.6)',
+    opacity: 0.8,
   },
   saveButtonText: {
     color: theme.colors.text.inverse,
     fontSize: theme.typography.fontSize.base,
-    fontWeight: theme.typography.fontWeight.semibold as any,
+    fontWeight: '600' as any,
   },
   daysList: {
     paddingHorizontal: theme.spacing.lg,
@@ -882,7 +924,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.colors.primary[500],
     borderRadius: theme.borderRadius.lg,
     marginBottom: theme.spacing.md,
-    ...theme.shadows.md,
   },
   dayHeaderLeft: {
     flex: 1,
